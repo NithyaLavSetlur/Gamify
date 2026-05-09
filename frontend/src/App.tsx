@@ -935,7 +935,12 @@ function TickTick({ state, refresh, completeWithReward }: { state: DashboardStat
         </Button>
       </div>
       <div className="mt-5">
-        {intel && <div className="mb-5"><NextSevenDaysTasks tasks={intel.ticktick.projects.flatMap((project) => project.tasks.map((task) => ({ ...task, project_name: project.name })))} /></div>}
+        {intel && (
+          <div className="mb-5">
+            <PanelHeader title="Next 7 Days" />
+            <NextSevenDaysTasks tasks={intel.ticktick.projects.flatMap((project) => project.tasks.map((task) => ({ ...task, project_name: project.name })))} />
+          </div>
+        )}
         <EnhancedQuestBoard quests={state.quests.filter((quest) => quest.external_source === "ticktick" || !quest.completed)} completeWithReward={completeWithReward} />
       </div>
     </Panel>
