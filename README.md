@@ -2,7 +2,19 @@
 
 Full-stack gamified study dashboard with React, TypeScript, Vite, Tailwind CSS, Framer Motion, FastAPI, and SQLite/PostgreSQL-ready SQLAlchemy.
 
-The first hosted version does **not** require TickTick or Google credentials. Manual quests, XP, streaks, boss fights, study timer, stats, local calendar blocks, and fallback integration data work before OAuth is configured.
+The hosted app stores study data through the backend database, not browser cache. Production should use PostgreSQL so quests, XP, streaks, boss fights, study sessions, imported TickTick tasks, Google Calendar events, and settings survive browser cache clearing and device changes.
+
+The first hosted version does **not** require TickTick or Google credentials. Manual quests, XP, streaks, boss fights, study timer, stats, and manual calendar blocks work before OAuth is configured.
+
+## Data Persistence
+
+- Local development uses SQLite by default at `backend/gamify.db`.
+- Production should set `DATABASE_URL` to PostgreSQL, such as Railway Postgres.
+- Browser cache/local storage is not the source of truth for study data.
+- The Settings page shows the active storage mode under **Data Storage**.
+- Clearing browser cache does not delete hosted PostgreSQL data.
+
+Current limitation: the app is still a personal single-profile app, not a full multi-user login system. Adding email/password login and per-user data isolation is a separate auth feature.
 
 ## First Deployment Order
 

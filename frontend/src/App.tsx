@@ -982,6 +982,7 @@ function SettingsPage({ state, refresh }: { state: DashboardState; refresh: () =
   const [health, setHealth] = useState<Record<string, unknown> | null>(null);
   const google = state.integrations.google_calendar;
   const ticktick = state.integrations.ticktick;
+  const database = health?.database as { ok?: boolean; url_scheme?: string; error?: string | null } | undefined;
   useEffect(() => {
     void api.deploymentConfig().then(setDeployment).catch(() => setDeployment(null));
     void api.health().then(setHealth).catch(() => setHealth(null));
@@ -1006,6 +1007,17 @@ function SettingsPage({ state, refresh }: { state: DashboardState; refresh: () =
             <Field type="number" value={weeklyGoal} onChange={(e) => setWeeklyGoal(Number(e.target.value))} />
           </div>
           <Button onClick={save}>{state.profile.shrivaishnava_mode ? "Use RPG wording" : "Use Shrivaishnava mode"}</Button>
+        </div>
+      </Panel>
+      <Panel>
+        <PanelHeader title="Data Storage" />
+        <div className="grid gap-3 text-sm">
+          <ConfigRow label="Study data location" value={storageLabel(database?.url_scheme)} />
+          <ConfigRow label="Database status" value={database?.ok ? "Connected and saving" : database?.error ? `Issue: ${database.error}` : "Checking..."} />
+          <div className="rounded-lg border border-jade/20 bg-jade/10 p-4">
+            <p className="font-bold text-white">Your quests, XP, streaks, sessions, bosses, imported tasks, calendar events, and settings are saved by the backend database.</p>
+            <p className="mt-2 text-slate-300">Clearing browser cache may log you out of future account features, but it will not erase the hosted study data stored in Railway/PostgreSQL.</p>
+          </div>
         </div>
       </Panel>
       <Panel>
@@ -1395,6 +1407,13 @@ function ConfigRow({ label, value }: { label: string; value: string }) {
       <p className="mt-1 break-all font-mono text-xs text-slate-200">{value}</p>
     </div>
   );
+}
+
+function storageLabel(urlScheme?: string) {
+  if (!urlScheme) return "Checking backend database";
+  if (urlScheme.startsWith("postgresql")) return "Cloud database - PostgreSQL on Railway";
+  if (urlScheme.startsWith("sqlite")) return "Local development database - SQLite file";
+  return `Backend database - ${urlScheme}`;
 }
 
 function Badge({ tone, children }: { tone: string; children: React.ReactNode }) {
