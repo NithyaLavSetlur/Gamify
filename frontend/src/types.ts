@@ -150,12 +150,17 @@ export type IntegrationInterpretation = {
 
 export type IntegrationTask = {
   id: string | null;
+  project_id: string | null;
   title: string;
   content: string;
   status: string;
   priority: number | null;
   tags: string[];
   due_date: string | null;
+  raw_due_date: string | null;
+  raw_start_date: string | null;
+  is_all_day: boolean;
+  time_zone: string | null;
   subject: string;
   difficulty: string;
   xp_reward: number;

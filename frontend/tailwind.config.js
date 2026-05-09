@@ -4,21 +4,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: "#0b1020",
-        panel: "#111827",
-        panel2: "#172033",
-        gold: "#f4c95d",
-        ember: "#ff7a45",
-        jade: "#2dd4bf",
-        rune: "#8b5cf6",
-        midnight: "#070a13",
-        steel: "#253047",
-        arcane: "#c084fc"
+        ink: "#18131f",
+        panel: "#211a2b",
+        panel2: "#2a2236",
+        gold: "#f0d48a",
+        ember: "#ef8f75",
+        jade: "#c4b5fd",
+        rune: "#a78bfa",
+        midnight: "#110d17",
+        steel: "#40364f",
+        arcane: "#ddd6fe"
       },
       boxShadow: {
-        glow: "0 0 40px rgba(45, 212, 191, 0.18)",
-        goldglow: "0 0 34px rgba(244, 201, 93, 0.22)",
-        emberglow: "0 0 28px rgba(255, 122, 69, 0.24)"
+        glow: "0 18px 50px rgba(124, 91, 172, 0.18)",
+        goldglow: "0 0 34px rgba(240, 212, 138, 0.2)",
+        emberglow: "0 0 28px rgba(239, 143, 117, 0.2)"
       }
     }
   },

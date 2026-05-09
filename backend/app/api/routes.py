@@ -46,6 +46,7 @@ from app.services.integrations import (
     sync_ticktick_tasks,
     ticktick_inventory,
     ticktick_status,
+    update_ticktick_task,
 )
 
 router = APIRouter(prefix="/api")
@@ -374,6 +375,14 @@ def ticktick_sync(db: Session = Depends(get_db)) -> dict:
         return sync_ticktick_tasks(db)
     except HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"TickTick sync failed: {exc}") from exc
+
+
+@router.patch("/integrations/ticktick/tasks/{project_id}/{task_id}")
+def ticktick_task_update(project_id: str, task_id: str, payload: dict, db: Session = Depends(get_db)) -> dict:
+    try:
+        return update_ticktick_task(db, project_id, task_id, payload)
+    except HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"TickTick task update failed: {exc}") from exc
 
 
 @router.get("/integrations/google/auth")

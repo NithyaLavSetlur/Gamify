@@ -146,7 +146,7 @@ def google_access_token(settings: Settings, db: Session) -> str | None:
 def sync_ticktick_tasks(db: Session) -> dict:
     token = get_token(db, "ticktick")
     if not token:
-        return seed_ticktick_fallback(db)
+        return {"synced": False, "mode": "not_connected", "created": 0, "updated": 0, "message": "TickTick is not connected. No mock tasks were created."}
 
     headers = {"Authorization": f"Bearer {token.access_token}"}
     projects_response = httpx.get(f"{TICKTICK_API}/project", headers=headers, timeout=20)
@@ -168,7 +168,7 @@ def sync_ticktick_tasks(db: Session) -> dict:
                 continue
             stored_external_id = f"{project_id}:{external_id}"
             existing = db.query(Quest).filter(Quest.external_source == "ticktick", Quest.external_id == stored_external_id).one_or_none()
-            due_date = parse_ticktick_date(task.get("dueDate"))
+            due_date = ticktick_task_date(task)
             title = task.get("title", "TickTick task")
             tags = task.get("tags") or []
             subject = infer_subject(project.get("name") or "TickTick", tags, title)
@@ -241,18 +241,23 @@ def ticktick_inventory(db: Session) -> dict:
         data_response.raise_for_status()
         tasks = []
         for task in data_response.json().get("tasks", []):
-            due_date = parse_ticktick_date(task.get("dueDate"))
+            due_date = ticktick_task_date(task)
             tags = task.get("tags") or []
             difficulty = ticktick_difficulty(task, due_date)
             tasks.append(
                 {
                     "id": task.get("id"),
+                    "project_id": project_id,
                     "title": task.get("title", "TickTick task"),
                     "content": task.get("content") or "",
                     "status": "completed" if task.get("status") == 2 else "open",
                     "priority": int(task.get("priority") or 0),
                     "tags": tags,
                     "due_date": due_date.date().isoformat() if due_date else None,
+                    "raw_due_date": task.get("dueDate"),
+                    "raw_start_date": task.get("startDate"),
+                    "is_all_day": bool(task.get("isAllDay")),
+                    "time_zone": task.get("timeZone"),
                     "subject": infer_subject(project.get("name") or "TickTick", tags, task.get("title", "")),
                     "difficulty": difficulty,
                     "xp_reward": xp_for_integration_difficulty(difficulty),
@@ -278,6 +283,33 @@ def ticktick_inventory(db: Session) -> dict:
     }
 
 
+def update_ticktick_task(db: Session, project_id: str, task_id: str, payload: dict) -> dict:
+    token = get_token(db, "ticktick")
+    if not token:
+        return {"updated": False, "message": "TickTick is not connected."}
+    body = {
+        "id": task_id,
+        "projectId": project_id,
+        "title": payload.get("title", "").strip() or "Untitled task",
+        "content": payload.get("content") or "",
+        "priority": int(payload.get("priority") or 0),
+    }
+    due_date = payload.get("due_date")
+    if due_date:
+        body["dueDate"] = format_ticktick_due_date(due_date)
+    else:
+        body["dueDate"] = None
+    response = httpx.post(
+        f"{TICKTICK_API}/task/{task_id}",
+        headers={"Authorization": f"Bearer {token.access_token}"},
+        json=body,
+        timeout=20,
+    )
+    response.raise_for_status()
+    sync_ticktick_tasks(db)
+    return {"updated": True, "task_id": task_id, "project_id": project_id}
+
+
 def complete_ticktick_task(db: Session, quest: Quest) -> bool:
     token = get_token(db, "ticktick")
     if quest.external_id and quest.external_id.startswith("fallback:"):
@@ -299,7 +331,7 @@ def complete_ticktick_task(db: Session, quest: Quest) -> bool:
 def sync_google_events(settings: Settings, db: Session) -> dict:
     access_token = google_access_token(settings, db)
     if not access_token:
-        return seed_google_fallback(db)
+        return {"synced": False, "mode": "not_connected", "created": 0, "updated": 0, "message": "Google Calendar is not connected. No mock events were created."}
 
     now = datetime.utcnow()
     response = httpx.get(
@@ -630,14 +662,20 @@ def quest_game_payload(quest: Quest) -> dict:
 
 
 def stored_ticktick_task_payload(quest: Quest) -> dict:
+    project_id, task_id = split_ticktick_external_id(quest.external_id or "")
     return {
-        "id": quest.external_id,
+        "id": task_id or quest.external_id,
+        "project_id": project_id,
         "title": quest.title,
         "content": quest.description,
         "status": "completed" if quest.completed else "open",
         "priority": None,
         "tags": [],
         "due_date": quest.due_date.isoformat() if quest.due_date else None,
+        "raw_due_date": None,
+        "raw_start_date": None,
+        "is_all_day": False,
+        "time_zone": None,
         "subject": quest.subject,
         "difficulty": quest.difficulty,
         "xp_reward": quest.xp_reward,
@@ -776,15 +814,40 @@ def calendar_quest_description(item: dict) -> str:
     return "\n".join(pieces)
 
 
+def ticktick_task_date(task: dict) -> datetime | None:
+    return parse_ticktick_date(task.get("dueDate") or task.get("startDate"))
+
+
 def parse_ticktick_date(value: str | None) -> datetime | None:
     if not value:
         return None
-    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S.%f%z"):
+    cleaned = value.strip()
+    if cleaned.endswith("Z"):
+        cleaned = cleaned[:-1] + "+00:00"
+    for fmt in (
+        "%Y-%m-%d",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S.%f",
+        "%Y-%m-%dT%H:%M:%S%z",
+        "%Y-%m-%dT%H:%M:%S.%f%z",
+    ):
         try:
-            return datetime.strptime(value, fmt).replace(tzinfo=None)
+            return datetime.strptime(cleaned, fmt).replace(tzinfo=None)
         except ValueError:
             continue
-    return None
+    try:
+        return datetime.fromisoformat(cleaned).replace(tzinfo=None)
+    except ValueError:
+        return None
+
+
+def format_ticktick_due_date(value: str) -> str:
+    parsed = parse_ticktick_date(value)
+    if not parsed:
+        parsed = datetime.strptime(value[:10], "%Y-%m-%d").replace(hour=12)
+    if parsed.hour == 0 and parsed.minute == 0 and len(value) <= 10:
+        parsed = parsed.replace(hour=12)
+    return parsed.strftime("%Y-%m-%dT%H:%M:%S+0000")
 
 
 def parse_google_datetime(value: dict) -> datetime | None:

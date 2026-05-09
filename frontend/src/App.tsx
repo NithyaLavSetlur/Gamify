@@ -375,6 +375,9 @@ function IntegrationDataHub({ refresh, completeWithReward }: { refresh: () => Pr
   };
   useEffect(() => {
     void load();
+    const handler = () => void load();
+    window.addEventListener("ticktick-updated", handler);
+    return () => window.removeEventListener("ticktick-updated", handler);
   }, []);
   const sync = async () => {
     setSyncing(true);
@@ -454,8 +457,13 @@ function IntegrationRules({ rules }: { rules: string[] }) {
 function TickTickDataExplorer({ intel, completeWithReward }: { intel: IntegrationIntelligence; completeWithReward: (action: () => Promise<void>, major?: boolean) => Promise<void> }) {
   const [projectId, setProjectId] = useState(intel.ticktick.projects[0]?.id ?? "");
   const selected = intel.ticktick.projects.find((project) => project.id === projectId) ?? intel.ticktick.projects[0];
+  const allTasks = intel.ticktick.projects.flatMap((project) => project.tasks.map((task) => ({ ...task, project_name: project.name })));
   return (
     <div className="grid gap-4 xl:grid-cols-[.75fr_1.25fr]">
+      <Panel className="xl:col-span-2">
+        <PanelHeader title="Next 7 Days" />
+        <NextSevenDaysTasks tasks={allTasks} />
+      </Panel>
       <Panel>
         <PanelHeader title="TickTick Projects" />
         <div className="space-y-2">
@@ -486,7 +494,73 @@ function TickTickDataExplorer({ intel, completeWithReward }: { intel: Integratio
   );
 }
 
+function NextSevenDaysTasks({ tasks }: { tasks: Array<IntegrationTask & { project_name?: string }> }) {
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() + index);
+    const key = date.toISOString().slice(0, 10);
+    return {
+      key,
+      label: index === 0 ? "Today" : date.toLocaleDateString(undefined, { weekday: "short" }),
+      dateLabel: date.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+      tasks: tasks
+        .filter((task) => task.status !== "completed" && task.due_date === key)
+        .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0) || b.xp_reward - a.xp_reward),
+    };
+  });
+  const unscheduled = tasks.filter((task) => task.status !== "completed" && !task.due_date);
+  return (
+    <div className="grid gap-3 lg:grid-cols-7">
+      {days.map((day) => (
+        <div key={day.key} className="min-h-40 rounded-lg border border-white/10 bg-ink/45 p-3">
+          <div className="mb-3">
+            <p className="text-sm font-black text-white">{day.label}</p>
+            <p className="text-xs text-slate-500">{day.dateLabel}</p>
+          </div>
+          <div className="space-y-2">
+            {day.tasks.length === 0 ? (
+              <p className="rounded border border-dashed border-white/10 p-2 text-xs text-slate-500">Clear</p>
+            ) : day.tasks.map((task) => (
+              <div key={`${task.project_id}-${task.id}`} className="rounded-md bg-white/7 p-2">
+                <p className="line-clamp-2 text-xs font-bold text-white">{task.title}</p>
+                <p className="mt-1 text-[11px] text-slate-400">{task.project_name} - {task.xp_reward} XP</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      {unscheduled.length > 0 && (
+        <div className="rounded-lg border border-white/10 bg-white/5 p-3 lg:col-span-7">
+          <p className="text-sm font-black text-white">Unscheduled</p>
+          <p className="mt-1 text-xs text-slate-400">{unscheduled.length} open TickTick tasks have no due date, so they are not placed into the next 7 days.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function IntegrationTaskCard({ task }: { task: IntegrationTask }) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    title: task.title,
+    content: task.content,
+    due_date: task.due_date ?? "",
+    priority: task.priority ?? 0,
+  });
+  const canEdit = Boolean(task.project_id && task.id);
+  const save = async () => {
+    if (!task.project_id || !task.id) return;
+    setSaving(true);
+    try {
+      await api.updateTickTickTask(task.project_id, task.id, form);
+      await api.syncTickTick();
+      setEditing(false);
+      window.dispatchEvent(new Event("ticktick-updated"));
+    } finally {
+      setSaving(false);
+    }
+  };
   return (
     <motion.div whileHover={{ y: -2 }} className="rounded-lg border border-white/10 bg-gradient-to-br from-ink/70 to-panel2/45 p-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -498,10 +572,30 @@ function IntegrationTaskCard({ task }: { task: IntegrationTask }) {
             <span className="rounded bg-white/8 px-2 py-1 text-xs text-slate-300">{task.status}</span>
           </div>
           <p className="mt-1 text-sm text-slate-400">{task.subject} - {task.quest_type} - {task.due_date ?? "no due date"}</p>
+          {task.raw_due_date && <p className="mt-1 text-xs text-slate-500">TickTick dueDate: {task.raw_due_date}</p>}
           {task.tags.length > 0 && <p className="mt-2 text-xs text-slate-500">Tags: {task.tags.join(", ")}</p>}
         </div>
-        <InterpretationPill interpretation={task.interpretation} />
+        <div className="flex flex-col items-start gap-2 md:items-end">
+          <InterpretationPill interpretation={task.interpretation} />
+          <Button variant="ghost" disabled={!canEdit} onClick={() => setEditing(!editing)}>{editing ? "Cancel" : "Edit in TickTick"}</Button>
+        </div>
       </div>
+      {editing && (
+        <div className="mt-4 grid gap-2 rounded-lg border border-white/10 bg-midnight/40 p-3">
+          <Field value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} />
+          <TextArea value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} />
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Field type="date" value={form.due_date} onChange={(event) => setForm({ ...form, due_date: event.target.value })} />
+            <Select value={String(form.priority)} onChange={(event) => setForm({ ...form, priority: Number(event.target.value) })}>
+              <option value="0">No priority</option>
+              <option value="1">Low priority</option>
+              <option value="3">Medium priority</option>
+              <option value="5">High priority</option>
+            </Select>
+          </div>
+          <Button onClick={save} disabled={saving}>{saving ? "Saving" : "Save to TickTick"}</Button>
+        </div>
+      )}
       <ReasonList reasons={task.interpretation.reasons} />
     </motion.div>
   );
@@ -822,17 +916,26 @@ function CalendarView({ state, refresh }: { state: DashboardState; refresh: () =
 
 function TickTick({ state, refresh, completeWithReward }: { state: DashboardState; refresh: () => Promise<void>; completeWithReward: (action: () => Promise<void>, major?: boolean) => Promise<void> }) {
   const ticktick = state.integrations.ticktick;
+  const [intel, setIntel] = useState<IntegrationIntelligence | null>(null);
+  const loadIntel = async () => setIntel(await api.integrationIntelligence());
+  useEffect(() => {
+    void loadIntel();
+    const handler = () => void loadIntel();
+    window.addEventListener("ticktick-updated", handler);
+    return () => window.removeEventListener("ticktick-updated", handler);
+  }, []);
   return (
     <Panel>
       <PanelHeader title="TickTick Command Board" />
       <IntegrationStatusCard status={ticktick} />
       <div className="mt-4 flex flex-wrap gap-2">
         {ticktick.auth_url && <Button onClick={() => window.open(ticktick.auth_url!, "_blank")}>Connect TickTick</Button>}
-        <Button variant="ghost" onClick={async () => { await api.syncTickTick(); await refresh(); }}>
+        <Button variant="ghost" onClick={async () => { await api.syncTickTick(); await refresh(); await loadIntel(); }}>
           <RefreshCcw size={16} /> Sync Tasks
         </Button>
       </div>
       <div className="mt-5">
+        {intel && <div className="mb-5"><NextSevenDaysTasks tasks={intel.ticktick.projects.flatMap((project) => project.tasks.map((task) => ({ ...task, project_name: project.name })))} /></div>}
         <EnhancedQuestBoard quests={state.quests.filter((quest) => quest.external_source === "ticktick" || !quest.completed)} completeWithReward={completeWithReward} />
       </div>
     </Panel>

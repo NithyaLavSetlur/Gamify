@@ -37,6 +37,8 @@ export const api = {
   updateSettings: (payload: Record<string, unknown>) =>
     request("/settings", { method: "PATCH", body: JSON.stringify(payload) }),
   syncTickTick: () => request("/integrations/ticktick/sync", { method: "POST" }),
+  updateTickTickTask: (projectId: string, taskId: string, payload: Record<string, unknown>) =>
+    request(`/integrations/ticktick/tasks/${encodeURIComponent(projectId)}/${encodeURIComponent(taskId)}`, { method: "PATCH", body: JSON.stringify(payload) }),
   syncGoogle: () => request("/integrations/google/sync", { method: "POST" }),
   syncAll: () => request("/integrations/sync-all", { method: "POST" })
 };
