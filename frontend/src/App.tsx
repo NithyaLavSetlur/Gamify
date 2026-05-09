@@ -11,6 +11,7 @@ import {
   Gauge,
   Gem,
   Hourglass,
+  Import,
   Link,
   ListChecks,
   Lock,
@@ -242,11 +243,21 @@ function RankHero({ state, wording }: { state: DashboardState; wording: Record<s
 
 function Dashboard({ state, refresh, completeWithReward, wording }: { state: DashboardState; refresh: () => Promise<void>; completeWithReward: (action: () => Promise<void>, major?: boolean) => Promise<void>; wording: Record<string, string> }) {
   const daily = state.quests.filter((q) => q.type === "daily");
+  const connectedCount = Number(state.integrations.ticktick.connected) + Number(state.integrations.google_calendar.connected);
   return (
     <div className="grid gap-4 xl:grid-cols-[1.2fr_.8fr]">
       <Panel className="xl:row-span-2">
-        <PanelHeader title={`${wording.quests} Board`} action={<AntiBoredom />} />
+        <PanelHeader title={`${wording.quests} Board`} action={<DashboardActions refresh={refresh} />} />
         <QuestBoard quests={daily.length ? daily : state.quests.slice(0, 6)} completeWithReward={completeWithReward} />
+      </Panel>
+      <Panel>
+        <PanelHeader title="Integration Intel" />
+        <div className="grid gap-3 sm:grid-cols-3">
+          <MiniStat icon={<Import className="text-jade" />} label="Connected feeds" value={`${connectedCount}/2`} />
+          <MiniStat icon={<ListChecks className="text-gold" />} label="Imported quests" value={state.quests.filter((q) => q.external_source).length.toString()} />
+          <MiniStat icon={<CalendarDays className="text-rune" />} label="Study events" value={state.events.filter((event) => event.is_study_block).length.toString()} />
+        </div>
+        <p className="mt-3 text-sm text-slate-400">Sync turns TickTick priorities into quest difficulty and Calendar study/exam events into focus quests or boss fights.</p>
       </Panel>
       <Panel>
         <PanelHeader title="Calendar Timeline" />
@@ -605,7 +616,10 @@ function Timeline({ events }: { events: CalendarEvent[] }) {
           <div className="rounded-lg bg-ink/50 p-3">
             <div className="flex items-center justify-between gap-3">
               <h3 className="font-bold text-white">{event.title}</h3>
-              {event.is_study_block && <span className="rounded bg-jade/15 px-2 py-1 text-xs text-teal-200">study</span>}
+              <div className="flex gap-2">
+                {event.external_source && <span className="rounded bg-rune/15 px-2 py-1 text-xs text-violet-200">{event.external_source}</span>}
+                {event.is_study_block && <span className="rounded bg-jade/15 px-2 py-1 text-xs text-teal-200">study</span>}
+              </div>
             </div>
             <p className="mt-1 text-sm text-slate-400">{new Date(event.starts_at).toLocaleString()} - {new Date(event.ends_at).toLocaleTimeString()}</p>
           </div>
@@ -719,6 +733,30 @@ function AntiBoredom() {
     >
       <Sparkles size={16} /> {challenge ? challenge : "Anti-boredom"}
     </Button>
+  );
+}
+
+function DashboardActions({ refresh }: { refresh: () => Promise<void> }) {
+  const [syncing, setSyncing] = useState(false);
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button
+        variant="ghost"
+        disabled={syncing}
+        onClick={async () => {
+          setSyncing(true);
+          try {
+            await api.syncAll();
+            await refresh();
+          } finally {
+            setSyncing(false);
+          }
+        }}
+      >
+        <RefreshCcw size={16} /> {syncing ? "Syncing" : "Sync integrations"}
+      </Button>
+      <AntiBoredom />
+    </div>
   );
 }
 

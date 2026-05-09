@@ -1,13 +1,17 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from urllib.parse import urlencode
 
 import httpx
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.models.entities import CalendarEvent, IntegrationToken, Quest
+from app.models.entities import BossFight, CalendarEvent, IntegrationToken, Quest
+from app.services.gamification import award_xp
 
-STUDY_WORDS = ("study", "uni", "exam", "revision", "assignment")
+STUDY_WORDS = ("study", "uni", "exam", "revision", "assignment", "lecture", "tutorial", "class", "homework", "quiz")
+EXAM_WORDS = ("exam", "test", "final", "midterm", "assessment")
+ASSIGNMENT_WORDS = ("assignment", "homework", "essay", "report", "project", "submission", "deadline")
+PRACTICE_WORDS = ("practice", "questions", "problem set", "past paper", "quiz")
 TICKTICK_API = "https://api.ticktick.com/open/v1"
 TICKTICK_TOKEN_URL = "https://ticktick.com/oauth/token"
 TICKTICK_AUTH_URL = "https://ticktick.com/oauth/authorize"
@@ -149,6 +153,8 @@ def sync_ticktick_tasks(db: Session) -> dict:
     projects_response.raise_for_status()
     projects = projects_response.json()
     created = 0
+    updated = 0
+    completed_awarded = 0
     for project in projects:
         project_id = project.get("id")
         if not project_id:
@@ -157,23 +163,27 @@ def sync_ticktick_tasks(db: Session) -> dict:
         data_response.raise_for_status()
         project_data = data_response.json()
         for task in project_data.get("tasks", []):
-            if task.get("status") == 2:
-                continue
             external_id = task.get("id")
             if not external_id:
                 continue
             stored_external_id = f"{project_id}:{external_id}"
             existing = db.query(Quest).filter(Quest.external_source == "ticktick", Quest.external_id == stored_external_id).one_or_none()
             due_date = parse_ticktick_date(task.get("dueDate"))
-            difficulty = priority_to_difficulty(task.get("priority", 0))
+            title = task.get("title", "TickTick task")
+            tags = task.get("tags") or []
+            subject = infer_subject(project.get("name") or "TickTick", tags, title)
+            difficulty = ticktick_difficulty(task, due_date)
+            xp_reward = xp_for_integration_difficulty(difficulty)
+            quest_type = quest_type_for_due_date(due_date.date() if due_date else None)
+            description = ticktick_description(task, tags)
             if not existing:
                 existing = Quest(
-                    title=task.get("title", "TickTick task"),
-                    description=task.get("content") or "",
-                    subject=project.get("name") or "TickTick",
-                    type="daily" if due_date and due_date.date() == datetime.now().date() else "manual",
+                    title=title,
+                    description=description,
+                    subject=subject,
+                    type=quest_type,
                     difficulty=difficulty,
-                    xp_reward={"easy": 10, "medium": 30, "hard": 50}.get(difficulty, 10),
+                    xp_reward=xp_reward,
                     due_date=due_date.date() if due_date else None,
                     external_source="ticktick",
                     external_id=stored_external_id,
@@ -181,12 +191,22 @@ def sync_ticktick_tasks(db: Session) -> dict:
                 db.add(existing)
                 created += 1
             else:
-                existing.title = task.get("title", existing.title)
-                existing.description = task.get("content") or existing.description
+                existing.title = title
+                existing.description = description
+                existing.subject = subject
                 existing.difficulty = difficulty
-                existing.due_date = due_date.date() if due_date else existing.due_date
+                existing.xp_reward = xp_reward
+                existing.type = quest_type
+                existing.due_date = due_date.date() if due_date else None
+                updated += 1
+            if task.get("status") == 2 and not existing.completed:
+                existing.completed = True
+                existing.completed_at = datetime.now()
+                db.flush()
+                award_xp(db, existing.xp_reward, f"Completed in TickTick: {existing.title}", existing.subject, "ticktick", existing.id)
+                completed_awarded += 1
     db.commit()
-    return {"synced": True, "mode": "oauth", "created": created, "projects": len(projects)}
+    return {"synced": True, "mode": "oauth", "created": created, "updated": updated, "completed_awarded": completed_awarded, "projects": len(projects)}
 
 
 def complete_ticktick_task(db: Session, quest: Quest) -> bool:
@@ -226,6 +246,9 @@ def sync_google_events(settings: Settings, db: Session) -> dict:
     )
     response.raise_for_status()
     created = 0
+    updated = 0
+    quests_created = 0
+    bosses_created = 0
     for item in response.json().get("items", []):
         external_id = item.get("id")
         if not external_id:
@@ -235,24 +258,31 @@ def sync_google_events(settings: Settings, db: Session) -> dict:
         if not start or not end:
             continue
         existing = db.query(CalendarEvent).filter(CalendarEvent.external_source == "google_calendar", CalendarEvent.external_id == external_id).one_or_none()
+        title = item.get("summary", "Calendar event")
+        description = item.get("description") or ""
+        is_study_block = detect_study_block(f"{title} {description}") or item.get("eventType") == "focusTime"
         if not existing:
             existing = CalendarEvent(
-                title=item.get("summary", "Calendar event"),
+                title=title,
                 starts_at=start,
                 ends_at=end,
-                is_study_block=detect_study_block(item.get("summary", "")),
+                is_study_block=is_study_block,
                 external_source="google_calendar",
                 external_id=external_id,
             )
             db.add(existing)
             created += 1
         else:
-            existing.title = item.get("summary", existing.title)
+            existing.title = title
             existing.starts_at = start
             existing.ends_at = end
-            existing.is_study_block = detect_study_block(existing.title)
+            existing.is_study_block = is_study_block
+            updated += 1
+        generated = synthesize_calendar_gameplay(db, item, start, end, is_study_block)
+        quests_created += generated["quests_created"]
+        bosses_created += generated["bosses_created"]
     db.commit()
-    return {"synced": True, "mode": "oauth", "created": created}
+    return {"synced": True, "mode": "oauth", "created": created, "updated": updated, "quests_created": quests_created, "bosses_created": bosses_created}
 
 
 def create_google_event(settings: Settings, db: Session, title: str, starts_at: datetime, ends_at: datetime) -> str | None:
@@ -264,10 +294,12 @@ def create_google_event(settings: Settings, db: Session, title: str, starts_at: 
         headers={"Authorization": f"Bearer {access_token}"},
         json={
             "summary": title,
-            "description": "Created from Gamify Study RPG.",
+            "description": "Created from Gamify Study RPG. Treat this block as protected focus time.",
             "start": {"dateTime": starts_at.isoformat()},
             "end": {"dateTime": ends_at.isoformat()},
             "eventType": "focusTime" if detect_study_block(title) else "default",
+            "extendedProperties": {"private": {"gamify": "study_block", "xp_hint": "30"}},
+            "reminders": {"useDefault": False, "overrides": [{"method": "popup", "minutes": 10}]},
         },
         timeout=20,
     )
@@ -319,6 +351,151 @@ def priority_to_difficulty(priority: int) -> str:
     if priority >= 3:
         return "medium"
     return "easy"
+
+
+def ticktick_difficulty(task: dict, due_date: datetime | None) -> str:
+    title = (task.get("title") or "").lower()
+    content = (task.get("content") or "").lower()
+    priority = int(task.get("priority") or 0)
+    if any(word in f"{title} {content}" for word in EXAM_WORDS):
+        return "boss"
+    if priority >= 5:
+        return "hard"
+    if due_date and due_date.date() < date.today():
+        return "hard"
+    if any(word in f"{title} {content}" for word in ASSIGNMENT_WORDS + PRACTICE_WORDS):
+        return "hard"
+    if priority >= 3 or (due_date and due_date.date() <= date.today() + timedelta(days=2)):
+        return "medium"
+    return "easy"
+
+
+def xp_for_integration_difficulty(difficulty: str) -> int:
+    return {"easy": 10, "medium": 30, "hard": 50, "boss": 200}.get(difficulty, 10)
+
+
+def quest_type_for_due_date(due_date: date | None) -> str:
+    if not due_date:
+        return "manual"
+    if due_date <= date.today():
+        return "daily"
+    if due_date <= date.today() + timedelta(days=7):
+        return "weekly"
+    return "manual"
+
+
+def infer_subject(project_name: str, tags: list[str], title: str) -> str:
+    for tag in tags:
+        cleaned = str(tag).replace("#", "").strip()
+        if cleaned:
+            return cleaned.title()
+    if project_name and project_name.lower() not in {"inbox", "ticktick"}:
+        return project_name
+    lowered = title.lower()
+    for subject in ("math", "physics", "chemistry", "biology", "english", "history", "economics", "coding", "programming"):
+        if subject in lowered:
+            return subject.title()
+    return project_name or "General"
+
+
+def ticktick_description(task: dict, tags: list[str]) -> str:
+    parts = []
+    if task.get("content"):
+        parts.append(task["content"])
+    if tags:
+        parts.append("Tags: " + ", ".join(str(tag) for tag in tags))
+    if task.get("priority"):
+        parts.append(f"TickTick priority: {task['priority']}")
+    return "\n".join(parts)
+
+
+def synthesize_calendar_gameplay(db: Session, item: dict, start: datetime, end: datetime, is_study_block: bool) -> dict:
+    title = item.get("summary", "Calendar event")
+    description = item.get("description") or ""
+    external_id = item.get("id")
+    text = f"{title} {description}".lower()
+    subject = infer_calendar_subject(title, description)
+    quests_created = 0
+    bosses_created = 0
+
+    if any(word in text for word in EXAM_WORDS):
+        existing_boss = db.query(BossFight).filter(BossFight.title == f"Prepare for {title}", BossFight.exam_date == start.date()).one_or_none()
+        if not existing_boss:
+            db.add(
+                BossFight(
+                    title=f"Prepare for {title}",
+                    subject=subject,
+                    exam_date=start.date(),
+                    duration_minutes=max(45, int((end - start).total_seconds() // 60)),
+                    difficulty="boss",
+                    topics=calendar_topics(description, title),
+                )
+            )
+            bosses_created += 1
+
+    should_create_quest = is_study_block or any(word in text for word in ASSIGNMENT_WORDS + PRACTICE_WORDS)
+    if should_create_quest and external_id:
+        quest_external_id = f"{external_id}:calendar-quest"
+        existing_quest = db.query(Quest).filter(Quest.external_source == "google_calendar", Quest.external_id == quest_external_id).one_or_none()
+        if not existing_quest:
+            if any(word in text for word in ASSIGNMENT_WORDS):
+                difficulty = "hard"
+                xp_reward = 50
+                quest_title = f"Make progress on {title}"
+            elif any(word in text for word in EXAM_WORDS):
+                difficulty = "boss"
+                xp_reward = 200
+                quest_title = f"Boss prep: {title}"
+            else:
+                difficulty = "medium"
+                xp_reward = 30
+                quest_title = f"Attend focus block: {title}"
+            db.add(
+                Quest(
+                    title=quest_title,
+                    description=calendar_quest_description(item),
+                    subject=subject,
+                    type=quest_type_for_due_date(start.date()),
+                    difficulty=difficulty,
+                    xp_reward=xp_reward,
+                    due_date=start.date(),
+                    external_source="google_calendar",
+                    external_id=quest_external_id,
+                )
+            )
+            quests_created += 1
+
+    return {"quests_created": quests_created, "bosses_created": bosses_created}
+
+
+def infer_calendar_subject(title: str, description: str) -> str:
+    text = f"{title} {description}".lower()
+    for marker in ("subject:", "course:", "unit:"):
+        if marker in text:
+            after = text.split(marker, 1)[1].splitlines()[0].strip()
+            if after:
+                return after[:40].title()
+    for subject in ("math", "physics", "chemistry", "biology", "english", "history", "economics", "coding", "programming"):
+        if subject in text:
+            return subject.title()
+    return "Calendar"
+
+
+def calendar_topics(description: str, title: str) -> str:
+    lines = [line.strip("- •\t ") for line in description.splitlines() if line.strip()]
+    if lines:
+        return "\n".join(lines[:8])
+    return f"Review scope for {title}\nPractice active recall\nComplete timed questions"
+
+
+def calendar_quest_description(item: dict) -> str:
+    pieces = []
+    if item.get("description"):
+        pieces.append(item["description"])
+    if item.get("htmlLink"):
+        pieces.append(f"Calendar link: {item['htmlLink']}")
+    pieces.append("Generated from Google Calendar sync.")
+    return "\n".join(pieces)
 
 
 def parse_ticktick_date(value: str | None) -> datetime | None:

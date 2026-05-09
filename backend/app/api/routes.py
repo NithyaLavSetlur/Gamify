@@ -373,6 +373,21 @@ def google_sync(db: Session = Depends(get_db), settings: Settings = Depends(get_
         raise HTTPException(status_code=502, detail=f"Google Calendar sync failed: {exc}") from exc
 
 
+@router.post("/integrations/sync-all")
+def sync_all(db: Session = Depends(get_db), settings: Settings = Depends(get_settings)) -> dict:
+    results: dict[str, dict] = {}
+    errors: dict[str, str] = {}
+    try:
+        results["ticktick"] = sync_ticktick_tasks(db)
+    except HTTPError as exc:
+        errors["ticktick"] = f"{exc.response.status_code if exc.response else 'network'}"
+    try:
+        results["google_calendar"] = sync_google_events(settings, db)
+    except HTTPError as exc:
+        errors["google_calendar"] = f"{exc.response.status_code if exc.response else 'network'}"
+    return {"synced": not errors, "results": results, "errors": errors}
+
+
 @router.get("/anti-boredom")
 def anti_boredom() -> dict:
     challenges = [
