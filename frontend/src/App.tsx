@@ -31,13 +31,14 @@ import {
   Zap
 } from "lucide-react";
 import { api, apiBaseUrl } from "./lib/api";
-import type { BossFight, CalendarEvent, DashboardState, DeploymentConfig, Quest, StudySession } from "./types";
+import type { BossFight, CalendarEvent, DashboardState, DeploymentConfig, IntegrationCalendarEvent, IntegrationIntelligence, IntegrationTask, Quest, StudySession } from "./types";
 import { Button, Field, Panel, Progress, Select, TextArea } from "./components/ui";
 
-type Page = "dashboard" | "quests" | "timer" | "bosses" | "calendar" | "ticktick" | "stats" | "settings";
+type Page = "dashboard" | "integrations" | "quests" | "timer" | "bosses" | "calendar" | "ticktick" | "stats" | "settings";
 
 const nav: Array<{ key: Page; label: string; icon: typeof Gauge }> = [
   { key: "dashboard", label: "Dashboard", icon: Gauge },
+  { key: "integrations", label: "Data Hub", icon: Brain },
   { key: "quests", label: "Daily Quests", icon: ListChecks },
   { key: "timer", label: "Study Timer", icon: TimerReset },
   { key: "bosses", label: "Boss Fights", icon: Swords },
@@ -188,6 +189,7 @@ export default function App() {
           <AnimatePresence mode="wait">
             <motion.div key={page} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.22 }}>
               {page === "dashboard" && <Dashboard state={state} refresh={refresh} completeWithReward={completeWithReward} wording={wording} />}
+              {page === "integrations" && <IntegrationDataHub refresh={refresh} completeWithReward={completeWithReward} />}
               {page === "quests" && <Quests state={state} refresh={refresh} completeWithReward={completeWithReward} />}
               {page === "timer" && <StudyTimer refresh={refresh} triggerReward={() => setRewardBurst(Date.now())} />}
               {page === "bosses" && <Bosses state={state} refresh={refresh} completeWithReward={completeWithReward} />}
@@ -356,6 +358,304 @@ function Dashboard({ state, refresh, completeWithReward, wording }: { state: Das
       </Panel>
     </div>
   );
+}
+
+function IntegrationDataHub({ refresh, completeWithReward }: { refresh: () => Promise<void>; completeWithReward: (action: () => Promise<void>, major?: boolean) => Promise<void> }) {
+  const [intel, setIntel] = useState<IntegrationIntelligence | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [tab, setTab] = useState<"overview" | "ticktick" | "calendar" | "gameplay">("overview");
+  const load = async () => {
+    setLoading(true);
+    try {
+      setIntel(await api.integrationIntelligence());
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    void load();
+  }, []);
+  const sync = async () => {
+    setSyncing(true);
+    try {
+      await api.syncAll();
+      await refresh();
+      await load();
+    } finally {
+      setSyncing(false);
+    }
+  };
+  if (loading || !intel) {
+    return (
+      <Panel>
+        <PanelHeader title="Integration Data Hub" />
+        <p className="text-sm text-slate-400">Reading TickTick and Calendar interpretation...</p>
+      </Panel>
+    );
+  }
+  return (
+    <div className="grid gap-4">
+      <Panel className="bg-gradient-to-br from-panel via-panel2/70 to-ink">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-jade">Integration Intelligence</p>
+            <h2 className="mt-1 text-3xl font-black text-white">See what was imported and how it becomes gameplay</h2>
+            <p className="mt-2 max-w-3xl text-sm text-slate-400">This page is the source-of-truth view: raw TickTick projects, Calendar events, and the exact rules used to turn them into quests, XP, boss fights, mastery, and streak progress.</p>
+          </div>
+          <Button onClick={sync} disabled={syncing}>
+            <RefreshCcw size={16} className={syncing ? "animate-spin" : ""} /> {syncing ? "Syncing" : "Sync + reclassify"}
+          </Button>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <MiniStat icon={<ListChecks className="text-gold" />} label="Imported quests" value={String(intel.summary.imported_quests)} />
+          <MiniStat icon={<Link className="text-jade" />} label="Open TickTick" value={String(intel.summary.open_ticktick_tasks)} />
+          <MiniStat icon={<CalendarDays className="text-rune" />} label="Study blocks" value={String(intel.summary.google_study_blocks)} />
+          <MiniStat icon={<Swords className="text-ember" />} label="Boss fights" value={String(intel.summary.boss_fights)} />
+          <MiniStat icon={<Sparkles className="text-jade" />} label="Study events" value={String(intel.summary.study_events)} />
+        </div>
+      </Panel>
+
+      <div className="flex flex-wrap gap-2">
+        {(["overview", "ticktick", "calendar", "gameplay"] as const).map((item) => (
+          <Button key={item} variant={tab === item ? "primary" : "ghost"} onClick={() => setTab(item)}>
+            {item === "overview" ? "How it works" : item === "ticktick" ? "TickTick data" : item === "calendar" ? "Calendar data" : "Generated gameplay"}
+          </Button>
+        ))}
+      </div>
+
+      {tab === "overview" && <IntegrationRules rules={intel.rules} />}
+      {tab === "ticktick" && <TickTickDataExplorer intel={intel} completeWithReward={completeWithReward} />}
+      {tab === "calendar" && <CalendarDataExplorer intel={intel} />}
+      {tab === "gameplay" && <GeneratedGameplay intel={intel} completeWithReward={completeWithReward} />}
+    </div>
+  );
+}
+
+function IntegrationRules({ rules }: { rules: string[] }) {
+  return (
+    <Panel>
+      <PanelHeader title="How Gamify Interprets Your Data" />
+      <div className="grid gap-3 lg:grid-cols-2">
+        {rules.map((rule, index) => (
+          <motion.div key={rule} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }} className="rounded-lg border border-white/10 bg-ink/55 p-4">
+            <div className="mb-2 flex items-center gap-2 text-jade">
+              <span className="grid h-7 w-7 place-items-center rounded-md bg-jade/10 text-xs font-black">{index + 1}</span>
+              <span className="text-xs font-bold uppercase tracking-[0.14em]">Rule</span>
+            </div>
+            <p className="text-sm leading-6 text-slate-300">{rule}</p>
+          </motion.div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function TickTickDataExplorer({ intel, completeWithReward }: { intel: IntegrationIntelligence; completeWithReward: (action: () => Promise<void>, major?: boolean) => Promise<void> }) {
+  const [projectId, setProjectId] = useState(intel.ticktick.projects[0]?.id ?? "");
+  const selected = intel.ticktick.projects.find((project) => project.id === projectId) ?? intel.ticktick.projects[0];
+  return (
+    <div className="grid gap-4 xl:grid-cols-[.75fr_1.25fr]">
+      <Panel>
+        <PanelHeader title="TickTick Projects" />
+        <div className="space-y-2">
+          {intel.ticktick.projects.map((project) => (
+            <button key={project.id} onClick={() => setProjectId(project.id)} className={`w-full rounded-lg border p-3 text-left transition ${selected?.id === project.id ? "border-jade/45 bg-jade/10" : "border-white/10 bg-ink/45 hover:bg-white/8"}`}>
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="font-black text-white">{project.name}</h3>
+                <span className="text-xs text-slate-400">{project.open}/{project.total} open</span>
+              </div>
+              <Progress value={project.completed} max={Math.max(1, project.total)} tone="jade" />
+            </button>
+          ))}
+        </div>
+      </Panel>
+      <Panel>
+        <PanelHeader title={selected ? `${selected.name} Tasks` : "TickTick Tasks"} />
+        {!selected ? <EmptyState icon={<Link />} title="No TickTick data" body="Sync TickTick to show projects and tasks here." /> : (
+          <div className="grid gap-3">
+            {selected.tasks.map((task) => <IntegrationTaskCard key={`${selected.id}-${task.id}-${task.title}`} task={task} />)}
+          </div>
+        )}
+      </Panel>
+      <Panel className="xl:col-span-2">
+        <PanelHeader title="TickTick Quests Created in Gamify" />
+        <EnhancedQuestBoard quests={intel.ticktick.generated_quests.map(integrationQuestToQuest)} completeWithReward={completeWithReward} />
+      </Panel>
+    </div>
+  );
+}
+
+function IntegrationTaskCard({ task }: { task: IntegrationTask }) {
+  return (
+    <motion.div whileHover={{ y: -2 }} className="rounded-lg border border-white/10 bg-gradient-to-br from-ink/70 to-panel2/45 p-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-black text-white">{task.title}</h3>
+            <Badge tone={task.difficulty}>{task.difficulty}</Badge>
+            <span className="rounded border border-gold/30 bg-gold/12 px-2 py-1 text-xs font-bold text-gold">{task.xp_reward} XP</span>
+            <span className="rounded bg-white/8 px-2 py-1 text-xs text-slate-300">{task.status}</span>
+          </div>
+          <p className="mt-1 text-sm text-slate-400">{task.subject} - {task.quest_type} - {task.due_date ?? "no due date"}</p>
+          {task.tags.length > 0 && <p className="mt-2 text-xs text-slate-500">Tags: {task.tags.join(", ")}</p>}
+        </div>
+        <InterpretationPill interpretation={task.interpretation} />
+      </div>
+      <ReasonList reasons={task.interpretation.reasons} />
+    </motion.div>
+  );
+}
+
+function CalendarDataExplorer({ intel }: { intel: IntegrationIntelligence }) {
+  const [mode, setMode] = useState<"list" | "month">("month");
+  const [filter, setFilter] = useState<"all" | "study" | "boss">("all");
+  const events = intel.google_calendar.events.filter((event) => {
+    if (filter === "study") return event.is_study_block;
+    if (filter === "boss") return event.interpretation.used_as === "boss_fight";
+    return true;
+  });
+  return (
+    <div className="grid gap-4">
+      <Panel>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <PanelHeader title="Custom Calendar View" />
+          <div className="flex flex-wrap gap-2">
+            <Button variant={mode === "month" ? "primary" : "ghost"} onClick={() => setMode("month")}>Month</Button>
+            <Button variant={mode === "list" ? "primary" : "ghost"} onClick={() => setMode("list")}>List</Button>
+            <Select value={filter} onChange={(event) => setFilter(event.target.value as "all" | "study" | "boss")} className="w-44">
+              <option value="all">All events</option>
+              <option value="study">Study only</option>
+              <option value="boss">Boss prep</option>
+            </Select>
+          </div>
+        </div>
+        {mode === "month" ? <CalendarMatrix events={events} /> : <CalendarEventList events={events} />}
+      </Panel>
+      <Panel>
+        <PanelHeader title="Calendar Quests + Bosses Created" />
+        <div className="grid gap-3 lg:grid-cols-2">
+          {intel.google_calendar.generated_quests.map((quest) => (
+            <div key={quest.id} className="rounded-lg border border-white/10 bg-ink/50 p-3">
+              <h3 className="font-black text-white">{quest.title}</h3>
+              <p className="text-sm text-slate-400">{quest.subject} - {quest.difficulty} - {quest.xp_reward} XP</p>
+            </div>
+          ))}
+          {intel.google_calendar.boss_fights.map((boss) => (
+            <div key={boss.id} className="rounded-lg border border-rune/30 bg-rune/10 p-3">
+              <h3 className="font-black text-white">{boss.title}</h3>
+              <p className="text-sm text-slate-400">{boss.subject} - {boss.exam_date ?? "no date"} - 200 XP</p>
+            </div>
+          ))}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function CalendarMatrix({ events }: { events: IntegrationCalendarEvent[] }) {
+  const start = new Date();
+  start.setDate(1);
+  const days = Array.from({ length: 35 }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    const key = date.toISOString().slice(0, 10);
+    return { key, date, events: events.filter((event) => event.starts_at.slice(0, 10) === key) };
+  });
+  return (
+    <div className="mt-4 grid grid-cols-7 gap-2">
+      {days.map((day) => (
+        <div key={day.key} className="min-h-24 rounded-lg border border-white/10 bg-ink/45 p-2">
+          <p className="mb-2 text-xs font-bold text-slate-500">{day.date.getDate()}</p>
+          <div className="space-y-1">
+            {day.events.slice(0, 3).map((event) => (
+              <div key={`${day.key}-${event.id}-${event.title}`} title={event.title} className={`truncate rounded px-2 py-1 text-[11px] ${event.is_study_block ? "bg-jade/15 text-teal-100" : "bg-white/8 text-slate-300"}`}>
+                {event.title}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CalendarEventList({ events }: { events: IntegrationCalendarEvent[] }) {
+  if (events.length === 0) return <EmptyState icon={<CalendarDays />} title="No matching events" body="Change the filter or sync Google Calendar again." />;
+  return (
+    <div className="mt-4 grid gap-3">
+      {events.map((event) => (
+        <motion.div key={`${event.id}-${event.starts_at}`} whileHover={{ y: -2 }} className="rounded-lg border border-white/10 bg-ink/50 p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h3 className="font-black text-white">{event.title}</h3>
+              <p className="mt-1 text-sm text-slate-400">{new Date(event.starts_at).toLocaleString()} - {new Date(event.ends_at).toLocaleTimeString()}</p>
+            </div>
+            <InterpretationPill interpretation={event.interpretation} />
+          </div>
+          <ReasonList reasons={event.interpretation.reasons} />
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+function GeneratedGameplay({ intel, completeWithReward }: { intel: IntegrationIntelligence; completeWithReward: (action: () => Promise<void>, major?: boolean) => Promise<void> }) {
+  const quests = [...intel.ticktick.generated_quests, ...intel.google_calendar.generated_quests].map(integrationQuestToQuest);
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1.2fr_.8fr]">
+      <Panel>
+        <PanelHeader title="Generated Quests" />
+        <EnhancedQuestBoard quests={quests} completeWithReward={completeWithReward} />
+      </Panel>
+      <Panel>
+        <PanelHeader title="Generated Boss Fights" />
+        <div className="grid gap-3">
+          {intel.google_calendar.boss_fights.length === 0 ? <EmptyState icon={<Swords />} title="No boss fights yet" body="Calendar events with exam/test wording will appear here." /> : intel.google_calendar.boss_fights.map((boss) => (
+            <div key={boss.id} className="rounded-lg border border-rune/30 bg-rune/10 p-4">
+              <h3 className="font-black text-white">{boss.title}</h3>
+              <p className="mt-1 text-sm text-slate-400">{boss.subject} - {boss.exam_date ?? "no date"} - {boss.duration_minutes} min</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {boss.topics.slice(0, 4).map((topic) => <span key={topic} className="rounded bg-white/8 px-2 py-1 text-xs text-slate-300">{topic}</span>)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function InterpretationPill({ interpretation }: { interpretation: { used_as: string; difficulty: string; xp_reward: number } }) {
+  return (
+    <div className="rounded-lg border border-jade/20 bg-jade/10 px-3 py-2 text-right">
+      <p className="text-xs uppercase tracking-[0.14em] text-jade">{interpretation.used_as.replace("_", " ")}</p>
+      <p className="text-sm font-black text-white">{interpretation.difficulty} {interpretation.xp_reward ? `- ${interpretation.xp_reward} XP` : ""}</p>
+    </div>
+  );
+}
+
+function ReasonList({ reasons }: { reasons: string[] }) {
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {reasons.map((reason) => <span key={reason} className="rounded border border-white/10 bg-white/6 px-2 py-1 text-xs text-slate-300">{reason}</span>)}
+    </div>
+  );
+}
+
+function integrationQuestToQuest(quest: IntegrationIntelligence["ticktick"]["generated_quests"][number]): Quest {
+  return {
+    id: quest.id,
+    title: quest.title,
+    description: quest.description,
+    subject: quest.subject,
+    type: quest.type,
+    difficulty: quest.difficulty,
+    xp_reward: quest.xp_reward,
+    due_date: quest.due_date,
+    completed: quest.completed,
+    external_source: quest.external_source,
+  };
 }
 
 function Quests({ state, refresh, completeWithReward }: { state: DashboardState; refresh: () => Promise<void>; completeWithReward: (action: () => Promise<void>, major?: boolean) => Promise<void> }) {

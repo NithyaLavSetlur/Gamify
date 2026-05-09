@@ -40,9 +40,11 @@ from app.services.integrations import (
     exchange_google_code,
     exchange_ticktick_code,
     get_token,
+    google_calendar_inventory,
     google_status,
     sync_google_events,
     sync_ticktick_tasks,
+    ticktick_inventory,
     ticktick_status,
 )
 
@@ -319,6 +321,32 @@ def update_settings(payload: SettingsUpdate, db: Session = Depends(get_db)) -> P
 @router.get("/integrations/status")
 def integrations_status(db: Session = Depends(get_db), settings: Settings = Depends(get_settings)) -> dict:
     return integration_payload(db, settings)
+
+
+@router.get("/integrations/intelligence")
+def integrations_intelligence(db: Session = Depends(get_db), settings: Settings = Depends(get_settings)) -> dict:
+    ticktick = ticktick_inventory(db)
+    google = google_calendar_inventory(settings, db)
+    imported_quests = db.query(Quest).filter(Quest.external_source.isnot(None)).count()
+    study_events = db.query(CalendarEvent).filter(CalendarEvent.is_study_block.is_(True)).count()
+    return {
+        "summary": {
+            "imported_quests": imported_quests,
+            "study_events": study_events,
+            "boss_fights": db.query(BossFight).count(),
+            "open_ticktick_tasks": sum(project["open"] for project in ticktick.get("projects", [])),
+            "google_study_blocks": len(google.get("study_blocks", [])),
+        },
+        "rules": [
+            "TickTick tasks become quests. Priority, due date, tags, project name, and study words decide subject, difficulty, and XP.",
+            "Completing a TickTick quest in Gamify also completes it in TickTick when OAuth is connected.",
+            "Google Calendar events stay visible on the timeline. Study/focus/assignment events can create quests.",
+            "Exam/test events become boss fight prep with 200 XP available after completion.",
+            "Everything is explainable here before it affects XP, streaks, mastery, or boss fights.",
+        ],
+        "ticktick": ticktick,
+        "google_calendar": google,
+    }
 
 
 @router.get("/integrations/ticktick/auth")

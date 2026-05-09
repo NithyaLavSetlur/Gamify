@@ -209,6 +209,75 @@ def sync_ticktick_tasks(db: Session) -> dict:
     return {"synced": True, "mode": "oauth", "created": created, "updated": updated, "completed_awarded": completed_awarded, "projects": len(projects)}
 
 
+def ticktick_inventory(db: Session) -> dict:
+    token = get_token(db, "ticktick")
+    stored_quests = db.query(Quest).filter(Quest.external_source == "ticktick").order_by(Quest.completed.asc(), Quest.due_date.asc().nullslast()).all()
+    if not token:
+        return {
+            "connected": False,
+            "source": "local_cache",
+            "projects": [
+                {
+                    "id": "local-cache",
+                    "name": "Imported TickTick quests",
+                    "total": len(stored_quests),
+                    "open": len([quest for quest in stored_quests if not quest.completed]),
+                    "completed": len([quest for quest in stored_quests if quest.completed]),
+                    "tasks": [stored_ticktick_task_payload(quest) for quest in stored_quests],
+                }
+            ],
+            "generated_quests": [quest_game_payload(quest) for quest in stored_quests],
+        }
+
+    headers = {"Authorization": f"Bearer {token.access_token}"}
+    projects_response = httpx.get(f"{TICKTICK_API}/project", headers=headers, timeout=20)
+    projects_response.raise_for_status()
+    projects_payload = []
+    for project in projects_response.json():
+        project_id = project.get("id")
+        if not project_id:
+            continue
+        data_response = httpx.get(f"{TICKTICK_API}/project/{project_id}/data", headers=headers, timeout=20)
+        data_response.raise_for_status()
+        tasks = []
+        for task in data_response.json().get("tasks", []):
+            due_date = parse_ticktick_date(task.get("dueDate"))
+            tags = task.get("tags") or []
+            difficulty = ticktick_difficulty(task, due_date)
+            tasks.append(
+                {
+                    "id": task.get("id"),
+                    "title": task.get("title", "TickTick task"),
+                    "content": task.get("content") or "",
+                    "status": "completed" if task.get("status") == 2 else "open",
+                    "priority": int(task.get("priority") or 0),
+                    "tags": tags,
+                    "due_date": due_date.date().isoformat() if due_date else None,
+                    "subject": infer_subject(project.get("name") or "TickTick", tags, task.get("title", "")),
+                    "difficulty": difficulty,
+                    "xp_reward": xp_for_integration_difficulty(difficulty),
+                    "quest_type": quest_type_for_due_date(due_date.date() if due_date else None),
+                    "interpretation": ticktick_interpretation(task, due_date, project.get("name") or "TickTick"),
+                }
+            )
+        projects_payload.append(
+            {
+                "id": project_id,
+                "name": project.get("name", "TickTick project"),
+                "total": len(tasks),
+                "open": len([task for task in tasks if task["status"] != "completed"]),
+                "completed": len([task for task in tasks if task["status"] == "completed"]),
+                "tasks": tasks,
+            }
+        )
+    return {
+        "connected": True,
+        "source": "ticktick_open_api",
+        "projects": projects_payload,
+        "generated_quests": [quest_game_payload(quest) for quest in stored_quests],
+    }
+
+
 def complete_ticktick_task(db: Session, quest: Quest) -> bool:
     token = get_token(db, "ticktick")
     if quest.external_id and quest.external_id.startswith("fallback:"):
@@ -283,6 +352,66 @@ def sync_google_events(settings: Settings, db: Session) -> dict:
         bosses_created += generated["bosses_created"]
     db.commit()
     return {"synced": True, "mode": "oauth", "created": created, "updated": updated, "quests_created": quests_created, "bosses_created": bosses_created}
+
+
+def google_calendar_inventory(settings: Settings, db: Session) -> dict:
+    access_token = google_access_token(settings, db)
+    stored_events = db.query(CalendarEvent).filter(CalendarEvent.external_source == "google_calendar").order_by(CalendarEvent.starts_at.asc()).all()
+    generated_quests = db.query(Quest).filter(Quest.external_source == "google_calendar").order_by(Quest.completed.asc(), Quest.due_date.asc().nullslast()).all()
+    generated_bosses = db.query(BossFight).order_by(BossFight.completed.asc(), BossFight.exam_date.asc().nullslast()).all()
+    if not access_token:
+        return {
+            "connected": False,
+            "source": "local_cache",
+            "events": [stored_calendar_event_payload(event) for event in stored_events],
+            "study_blocks": [stored_calendar_event_payload(event) for event in stored_events if event.is_study_block],
+            "generated_quests": [quest_game_payload(quest) for quest in generated_quests],
+            "boss_fights": [boss_game_payload(boss) for boss in generated_bosses],
+        }
+
+    now = datetime.utcnow()
+    response = httpx.get(
+        f"{GOOGLE_CALENDAR_API}/calendars/{settings.google_calendar_id}/events",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={
+            "timeMin": (now - timedelta(days=7)).isoformat() + "Z",
+            "timeMax": (now + timedelta(days=30)).isoformat() + "Z",
+            "singleEvents": "true",
+            "orderBy": "startTime",
+        },
+        timeout=20,
+    )
+    response.raise_for_status()
+    events = []
+    for item in response.json().get("items", []):
+        start = parse_google_datetime(item.get("start", {}))
+        end = parse_google_datetime(item.get("end", {}))
+        if not start or not end:
+            continue
+        title = item.get("summary", "Calendar event")
+        description = item.get("description") or ""
+        is_study_block = detect_study_block(f"{title} {description}") or item.get("eventType") == "focusTime"
+        events.append(
+            {
+                "id": item.get("id"),
+                "title": title,
+                "description": description,
+                "starts_at": start.isoformat(),
+                "ends_at": end.isoformat(),
+                "event_type": item.get("eventType", "default"),
+                "is_study_block": is_study_block,
+                "subject": infer_calendar_subject(title, description),
+                "interpretation": calendar_interpretation(item, is_study_block),
+            }
+        )
+    return {
+        "connected": True,
+        "source": "google_calendar_api",
+        "events": events,
+        "study_blocks": [event for event in events if event["is_study_block"]],
+        "generated_quests": [quest_game_payload(quest) for quest in generated_quests],
+        "boss_fights": [boss_game_payload(boss) for boss in generated_bosses],
+    }
 
 
 def create_google_event(settings: Settings, db: Session, title: str, starts_at: datetime, ends_at: datetime) -> str | None:
@@ -407,6 +536,155 @@ def ticktick_description(task: dict, tags: list[str]) -> str:
     if task.get("priority"):
         parts.append(f"TickTick priority: {task['priority']}")
     return "\n".join(parts)
+
+
+def ticktick_interpretation(task: dict, due_date: datetime | None, project_name: str) -> dict:
+    title = task.get("title", "TickTick task")
+    content = task.get("content") or ""
+    tags = task.get("tags") or []
+    difficulty = ticktick_difficulty(task, due_date)
+    reasons = []
+    text = f"{title} {content}".lower()
+    priority = int(task.get("priority") or 0)
+    if priority:
+        reasons.append(f"TickTick priority {priority} raises importance.")
+    if due_date:
+        if due_date.date() < date.today():
+            reasons.append("Overdue tasks become hard quests.")
+        elif due_date.date() <= date.today() + timedelta(days=2):
+            reasons.append("Near due date makes this a near-term quest.")
+    if any(word in text for word in EXAM_WORDS):
+        reasons.append("Exam/test wording marks it as boss-level prep.")
+    if any(word in text for word in ASSIGNMENT_WORDS):
+        reasons.append("Assignment/deadline wording turns it into progress work.")
+    if any(word in text for word in PRACTICE_WORDS):
+        reasons.append("Practice/question wording maps to higher XP study work.")
+    if tags:
+        reasons.append("Tags are used as subject labels before project names.")
+    if not reasons:
+        reasons.append("Standard task: small quest XP.")
+    return {
+        "used_as": "completed_xp" if task.get("status") == 2 else "quest",
+        "subject": infer_subject(project_name, tags, title),
+        "difficulty": difficulty,
+        "xp_reward": xp_for_integration_difficulty(difficulty),
+        "quest_type": quest_type_for_due_date(due_date.date() if due_date else None),
+        "reasons": reasons,
+    }
+
+
+def calendar_interpretation(item: dict, is_study_block: bool) -> dict:
+    title = item.get("summary", "Calendar event")
+    description = item.get("description") or ""
+    text = f"{title} {description}".lower()
+    reasons = []
+    used_as = "timeline"
+    difficulty = "easy"
+    xp_reward = 0
+    if item.get("eventType") == "focusTime":
+        reasons.append("Google marks this as focus time.")
+    if is_study_block:
+        used_as = "study_block"
+        difficulty = "medium"
+        xp_reward = 30
+        reasons.append("Study-related wording makes this a focus quest candidate.")
+    if any(word in text for word in ASSIGNMENT_WORDS):
+        used_as = "quest"
+        difficulty = "hard"
+        xp_reward = 50
+        reasons.append("Assignment/deadline wording becomes hard quest XP.")
+    if any(word in text for word in PRACTICE_WORDS):
+        used_as = "quest"
+        difficulty = "hard"
+        xp_reward = 50
+        reasons.append("Practice/question wording becomes study progress XP.")
+    if any(word in text for word in EXAM_WORDS):
+        used_as = "boss_fight"
+        difficulty = "boss"
+        xp_reward = 200
+        reasons.append("Exam/test wording creates boss fight prep.")
+    if not reasons:
+        reasons.append("Shown in timeline only; not gamified unless it looks study-related.")
+    return {
+        "used_as": used_as,
+        "subject": infer_calendar_subject(title, description),
+        "difficulty": difficulty,
+        "xp_reward": xp_reward,
+        "reasons": reasons,
+    }
+
+
+def quest_game_payload(quest: Quest) -> dict:
+    return {
+        "id": quest.id,
+        "title": quest.title,
+        "subject": quest.subject,
+        "type": quest.type,
+        "difficulty": quest.difficulty,
+        "xp_reward": quest.xp_reward,
+        "due_date": quest.due_date.isoformat() if quest.due_date else None,
+        "completed": quest.completed,
+        "external_source": quest.external_source,
+        "description": quest.description,
+    }
+
+
+def stored_ticktick_task_payload(quest: Quest) -> dict:
+    return {
+        "id": quest.external_id,
+        "title": quest.title,
+        "content": quest.description,
+        "status": "completed" if quest.completed else "open",
+        "priority": None,
+        "tags": [],
+        "due_date": quest.due_date.isoformat() if quest.due_date else None,
+        "subject": quest.subject,
+        "difficulty": quest.difficulty,
+        "xp_reward": quest.xp_reward,
+        "quest_type": quest.type,
+        "interpretation": {
+            "used_as": "completed_xp" if quest.completed else "quest",
+            "subject": quest.subject,
+            "difficulty": quest.difficulty,
+            "xp_reward": quest.xp_reward,
+            "quest_type": quest.type,
+            "reasons": ["Loaded from the local Gamify quest cache."],
+        },
+    }
+
+
+def stored_calendar_event_payload(event: CalendarEvent) -> dict:
+    return {
+        "id": event.external_id,
+        "title": event.title,
+        "description": "",
+        "starts_at": event.starts_at.isoformat(),
+        "ends_at": event.ends_at.isoformat(),
+        "event_type": "local",
+        "is_study_block": event.is_study_block,
+        "subject": "Calendar",
+        "interpretation": {
+            "used_as": "study_block" if event.is_study_block else "timeline",
+            "subject": "Calendar",
+            "difficulty": "medium" if event.is_study_block else "easy",
+            "xp_reward": 30 if event.is_study_block else 0,
+            "reasons": ["Loaded from the local Gamify calendar cache."],
+        },
+    }
+
+
+def boss_game_payload(boss: BossFight) -> dict:
+    return {
+        "id": boss.id,
+        "title": boss.title,
+        "subject": boss.subject,
+        "exam_date": boss.exam_date.isoformat() if boss.exam_date else None,
+        "duration_minutes": boss.duration_minutes,
+        "difficulty": boss.difficulty,
+        "completed": boss.completed,
+        "xp_awarded": boss.xp_awarded,
+        "topics": [topic for topic in boss.topics.split("\n") if topic],
+    }
 
 
 def synthesize_calendar_gameplay(db: Session, item: dict, start: datetime, end: datetime, is_study_block: bool) -> dict:

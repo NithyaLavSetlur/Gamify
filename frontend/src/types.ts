@@ -96,3 +96,94 @@ export type DeploymentConfig = {
   ticktick_credentials_configured: boolean;
   google_credentials_configured: boolean;
 };
+
+export type IntegrationIntelligence = {
+  summary: {
+    imported_quests: number;
+    study_events: number;
+    boss_fights: number;
+    open_ticktick_tasks: number;
+    google_study_blocks: number;
+  };
+  rules: string[];
+  ticktick: {
+    connected: boolean;
+    source: string;
+    projects: Array<{
+      id: string;
+      name: string;
+      total: number;
+      open: number;
+      completed: number;
+      tasks: IntegrationTask[];
+    }>;
+    generated_quests: IntegrationQuest[];
+  };
+  google_calendar: {
+    connected: boolean;
+    source: string;
+    events: IntegrationCalendarEvent[];
+    study_blocks: IntegrationCalendarEvent[];
+    generated_quests: IntegrationQuest[];
+    boss_fights: Array<{
+      id: number;
+      title: string;
+      subject: string;
+      exam_date: string | null;
+      duration_minutes: number;
+      difficulty: string;
+      completed: boolean;
+      xp_awarded: number;
+      topics: string[];
+    }>;
+  };
+};
+
+export type IntegrationInterpretation = {
+  used_as: string;
+  subject: string;
+  difficulty: string;
+  xp_reward: number;
+  quest_type?: string;
+  reasons: string[];
+};
+
+export type IntegrationTask = {
+  id: string | null;
+  title: string;
+  content: string;
+  status: string;
+  priority: number | null;
+  tags: string[];
+  due_date: string | null;
+  subject: string;
+  difficulty: string;
+  xp_reward: number;
+  quest_type: string;
+  interpretation: IntegrationInterpretation;
+};
+
+export type IntegrationCalendarEvent = {
+  id: string | null;
+  title: string;
+  description: string;
+  starts_at: string;
+  ends_at: string;
+  event_type: string;
+  is_study_block: boolean;
+  subject: string;
+  interpretation: IntegrationInterpretation;
+};
+
+export type IntegrationQuest = {
+  id: number;
+  title: string;
+  subject: string;
+  type: string;
+  difficulty: string;
+  xp_reward: number;
+  due_date: string | null;
+  completed: boolean;
+  external_source: string | null;
+  description: string;
+};
