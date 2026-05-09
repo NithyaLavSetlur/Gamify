@@ -1,0 +1,15 @@
+backend/.env
+backend/.venv/
+backend/gamify.db
+backend/app/**/__pycache__/
+backend/.pytest_cache/
+
+frontend/.env
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+
+.DS_Store
+Thumbs.db

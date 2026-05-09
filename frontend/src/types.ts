@@ -1,0 +1,98 @@
+export type Profile = {
+  id: number;
+  display_name: string;
+  xp: number;
+  current_streak: number;
+  longest_streak: number;
+  combo_count: number;
+  daily_xp_goal: number;
+  weekly_xp_goal: number;
+  streak_freezes: number;
+  shrivaishnava_mode: boolean;
+  level: number;
+  xp_into_level: number;
+  xp_for_next_level: number;
+  rank_title: string;
+};
+
+export type Quest = {
+  id: number;
+  title: string;
+  description: string;
+  subject: string;
+  type: "daily" | "weekly" | string;
+  difficulty: "easy" | "medium" | "hard" | "boss" | string;
+  xp_reward: number;
+  due_date: string | null;
+  completed: boolean;
+  external_source: string | null;
+};
+
+export type StudySession = {
+  id: number;
+  subject: string;
+  mode: string;
+  minutes: number;
+  xp_awarded: number;
+  notes: string;
+  created_at: string;
+};
+
+export type BossFight = {
+  id: number;
+  subject: string;
+  title: string;
+  exam_date: string | null;
+  duration_minutes: number;
+  difficulty: "easy" | "medium" | "hard" | "boss" | string;
+  topics: string[];
+  completed: boolean;
+  xp_awarded: number;
+};
+
+export type CalendarEvent = {
+  id: number;
+  title: string;
+  starts_at: string;
+  ends_at: string;
+  is_study_block: boolean;
+  external_source: string | null;
+};
+
+export type DashboardState = {
+  profile: Profile;
+  quests: Quest[];
+  sessions: StudySession[];
+  bosses: BossFight[];
+  events: CalendarEvent[];
+  achievements: Array<{ key: string; title: string; description: string; unlocked_at: string }>;
+  mastery: Array<{ subject: string; points: number }>;
+  heatmap: Array<{ date: string; xp: number }>;
+  integrations: Record<string, IntegrationStatus>;
+  goals: {
+    daily_xp: number;
+    daily_goal: number;
+    weekly_xp: number;
+    weekly_goal: number;
+  };
+  ranks: Array<{ threshold: number; title: string; unlocked: boolean }>;
+  locked_achievements: Array<{ key: string; title: string; description: string; unlocked: boolean }>;
+  quote: { title: string; body: string };
+};
+
+export type IntegrationStatus = {
+  provider: string;
+  configured: boolean;
+  connected: boolean;
+  auth_url: string | null;
+  manual_fallback: boolean;
+};
+
+export type DeploymentConfig = {
+  backend_url: string;
+  frontend_url: string;
+  ticktick_redirect_uri: string;
+  google_redirect_uri: string;
+  ticktick_credentials_configured: boolean;
+  google_credentials_configured: boolean;
+};
