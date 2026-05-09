@@ -1,8 +1,10 @@
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import RedirectResponse
 from httpx import HTTPError
 from sqlalchemy.orm import Session
+from urllib.parse import urlencode
 
 from app.core.config import Settings, get_settings
 from app.db.session import engine, get_db
@@ -176,6 +178,11 @@ def deployment_config(settings: Settings = Depends(get_settings)) -> dict:
     }
 
 
+def oauth_return_url(settings: Settings, provider: str, ok: bool, message: str) -> str:
+    params = urlencode({"integration": provider, "connected": str(ok).lower(), "message": message})
+    return f"{settings.frontend_url}?{params}"
+
+
 @router.get("/quests", response_model=list[QuestOut])
 def list_quests(db: Session = Depends(get_db)) -> list[QuestOut]:
     rows = db.query(Quest).order_by(Quest.completed.asc(), Quest.due_date.asc().nullslast()).all()
@@ -318,17 +325,17 @@ def ticktick_auth(db: Session = Depends(get_db), settings: Settings = Depends(ge
 
 
 @router.get("/integrations/ticktick/callback")
-def ticktick_callback(code: str | None = None, db: Session = Depends(get_db)) -> dict:
+def ticktick_callback(code: str | None = None, db: Session = Depends(get_db), settings: Settings = Depends(get_settings)) -> RedirectResponse:
     if not code:
-        raise HTTPException(status_code=400, detail="Missing OAuth code")
+        return RedirectResponse(oauth_return_url(settings, "ticktick", False, "Missing OAuth code"))
     profile = get_or_create_profile(db)
     try:
-        exchange_ticktick_code(get_settings(), db, code)
+        exchange_ticktick_code(settings, db, code)
     except HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"TickTick OAuth exchange failed: {exc}") from exc
+        return RedirectResponse(oauth_return_url(settings, "ticktick", False, f"OAuth exchange failed: {exc.response.status_code if exc.response else 'network'}"))
     profile.ticktick_connected = True
     db.commit()
-    return {"connected": profile.ticktick_connected, "message": "TickTick connected. Return to the app and sync tasks."}
+    return RedirectResponse(oauth_return_url(settings, "ticktick", True, "TickTick connected"))
 
 
 @router.post("/integrations/ticktick/sync")
@@ -345,17 +352,17 @@ def google_auth(db: Session = Depends(get_db), settings: Settings = Depends(get_
 
 
 @router.get("/integrations/google/callback")
-def google_callback(code: str | None = None, db: Session = Depends(get_db)) -> dict:
+def google_callback(code: str | None = None, db: Session = Depends(get_db), settings: Settings = Depends(get_settings)) -> RedirectResponse:
     if not code:
-        raise HTTPException(status_code=400, detail="Missing OAuth code")
+        return RedirectResponse(oauth_return_url(settings, "google_calendar", False, "Missing OAuth code"))
     profile = get_or_create_profile(db)
     try:
-        exchange_google_code(get_settings(), db, code)
+        exchange_google_code(settings, db, code)
     except HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"Google OAuth exchange failed: {exc}") from exc
+        return RedirectResponse(oauth_return_url(settings, "google_calendar", False, f"OAuth exchange failed: {exc.response.status_code if exc.response else 'network'}"))
     profile.google_connected = True
     db.commit()
-    return {"connected": profile.google_connected, "message": "Google Calendar connected. Return to the app and sync events."}
+    return RedirectResponse(oauth_return_url(settings, "google_calendar", True, "Google Calendar connected"))
 
 
 @router.post("/integrations/google/sync")

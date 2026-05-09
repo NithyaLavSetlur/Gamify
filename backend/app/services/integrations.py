@@ -73,6 +73,7 @@ def google_status(settings: Settings, connected: bool, has_token: bool = False) 
             "scope": scope,
             "access_type": "offline",
             "prompt": "consent",
+            "include_granted_scopes": "true",
             "state": "local-dev",
         }
     )
@@ -86,18 +87,16 @@ def google_status(settings: Settings, connected: bool, has_token: bool = False) 
 
 
 def exchange_ticktick_code(settings: Settings, db: Session, code: str) -> IntegrationToken:
-    # TickTick Open API uses OAuth 2.0 authorization code flow. Some apps require
-    # HTTP Basic client auth, while others accept client_id/client_secret form fields.
-    # This implementation uses form fields first because it is easiest to run locally.
+    # TickTick Open API expects the client id/secret as HTTP Basic auth for token exchange.
     response = httpx.post(
         TICKTICK_TOKEN_URL,
         data={
-            "client_id": settings.ticktick_client_id,
-            "client_secret": settings.ticktick_client_secret,
             "code": code,
             "grant_type": "authorization_code",
             "redirect_uri": settings.ticktick_redirect_uri,
+            "scope": "tasks:read tasks:write",
         },
+        auth=(settings.ticktick_client_id, settings.ticktick_client_secret),
         timeout=20,
     )
     response.raise_for_status()
