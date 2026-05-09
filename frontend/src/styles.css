@@ -21,6 +21,10 @@ body {
     #0b1020;
 }
 
+body::selection {
+  background: rgba(45, 212, 191, 0.28);
+}
+
 button,
 input,
 select,
@@ -54,6 +58,77 @@ textarea {
 
 .flame-flicker {
   animation: flame 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
+
+.xp-shimmer {
+  background-image: linear-gradient(90deg, transparent, rgba(255,255,255,.36), transparent);
+  background-size: 220% 100%;
+  animation: shimmer 2.6s ease-in-out infinite;
+}
+
+@keyframes drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(1.2rem, -1rem, 0) scale(1.04); }
+}
+
+.ambient-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(circle at 50% 0%, black, transparent 72%);
+}
+
+.ambient-orb {
+  animation: drift 9s ease-in-out infinite;
+}
+
+.panel-hover {
+  position: relative;
+  overflow: hidden;
+  transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease;
+}
+
+.panel-hover:hover {
+  border-color: rgba(45, 212, 191, .22);
+  box-shadow: 0 0 44px rgba(45, 212, 191, .13);
+}
+
+.quest-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 0%, rgba(255,255,255,.06) 44%, transparent 58%);
+  transform: translateX(-130%);
+  transition: transform .65s ease;
+}
+
+.quest-card:hover::before {
+  transform: translateX(130%);
+}
+
+@keyframes focus-ring {
+  0%, 100% { box-shadow: 0 0 0 rgba(45, 212, 191, 0); }
+  50% { box-shadow: 0 0 32px rgba(45, 212, 191, .22); }
+}
+
+.focus-pulse {
+  animation: focus-ring 2.4s ease-in-out infinite;
+}
+
+@keyframes soft-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.soft-float {
+  animation: soft-float 3.4s ease-in-out infinite;
 }
 
 @keyframes reward-fall {

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 export function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-lg border border-white/10 bg-panel/72 p-4 shadow-glow backdrop-blur ${className}`}>{children}</section>;
+  return <section className={`panel-hover rounded-lg border border-white/10 bg-panel/72 p-4 shadow-glow backdrop-blur ${className}`}>{children}</section>;
 }
 
 export function Button({
@@ -57,7 +57,7 @@ export function Progress({ value, max = 100, tone = "jade" }: { value: number; m
   const color = { jade: "bg-jade", gold: "bg-gold", ember: "bg-ember", rune: "bg-rune" }[tone];
   return (
     <div className="h-2 overflow-hidden rounded-full bg-white/10">
-      <div className={`h-full rounded-full transition-all duration-700 ${color}`} style={{ width: `${width}%` }} />
+      <div className={`xp-shimmer h-full rounded-full transition-all duration-700 ${color}`} style={{ width: `${width}%` }} />
     </div>
   );
 }

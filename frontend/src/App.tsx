@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Award,
   BarChart3,
+  Brain,
   CalendarDays,
   Check,
   ChevronRight,
@@ -15,6 +16,7 @@ import {
   Link,
   ListChecks,
   Lock,
+  Play,
   Plus,
   RefreshCcw,
   Settings,
@@ -23,7 +25,9 @@ import {
   Sparkles,
   Swords,
   TimerReset,
+  Target,
   Trophy,
+  Wand2,
   Zap
 } from "lucide-react";
 import { api, apiBaseUrl } from "./lib/api";
@@ -85,6 +89,7 @@ export default function App() {
   const wording = state?.profile.shrivaishnava_mode
     ? { quests: "Sadhana", focus: "Mind refinement", streak: "Discipline flame", mission: "Today's refinement" }
     : { quests: "Quests", focus: "Focus", streak: "Daily streak", mission: "Today's mission" };
+  const nextQuest = useMemo(() => selectNextQuest(state?.quests ?? []), [state]);
 
   const completeWithReward = async (action: () => Promise<void>, major = false) => {
     await action();
@@ -119,6 +124,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen overflow-x-hidden text-slate-100">
+      <AmbientBackdrop />
       <RewardBurst seed={rewardBurst} />
       <AnimatePresence>
         {levelFlash && (
@@ -141,7 +147,7 @@ export default function App() {
             <div className="grid h-12 w-12 place-items-center rounded-lg bg-jade text-ink shadow-glow">
               <Shield />
             </div>
-            <div>
+            <div className="min-w-0 pl-1">
               <p className="text-xs uppercase tracking-[0.18em] text-jade">Study RPG</p>
               <h1 className="font-black">{state.profile.display_name}</h1>
             </div>
@@ -178,6 +184,7 @@ export default function App() {
         <div className="mx-auto max-w-7xl px-4 py-5 md:py-7">
           {error && <div className="mb-4 rounded-md border border-ember/40 bg-ember/10 p-3 text-sm text-orange-100">{error}</div>}
           <RankHero state={state} wording={wording} />
+          <QuickLaunch state={state} nextQuest={nextQuest} setPage={setPage} refresh={refresh} wording={wording} />
           <AnimatePresence mode="wait">
             <motion.div key={page} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.22 }}>
               {page === "dashboard" && <Dashboard state={state} refresh={refresh} completeWithReward={completeWithReward} wording={wording} />}
@@ -207,6 +214,10 @@ function RankHero({ state, wording }: { state: DashboardState; wording: Record<s
       >
         <div className="absolute right-[-6rem] top-[-8rem] h-72 w-72 rounded-full bg-jade/10 blur-3xl" />
         <div className="absolute bottom-[-8rem] left-1/3 h-72 w-72 rounded-full bg-rune/12 blur-3xl" />
+        <div className="soft-float absolute right-8 top-8 hidden h-24 w-24 rounded-full border border-gold/20 bg-gold/5 lg:block">
+          <div className="absolute inset-4 rounded-full border border-jade/20" />
+          <Sparkles className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-gold" size={24} />
+        </div>
         <div className="relative grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-gold">
@@ -241,14 +252,82 @@ function RankHero({ state, wording }: { state: DashboardState; wording: Record<s
   );
 }
 
+function AmbientBackdrop() {
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+      <div className="ambient-grid absolute inset-0 opacity-55" />
+      <div className="ambient-orb absolute left-[10%] top-[8%] h-56 w-56 rounded-full bg-jade/10 blur-3xl" />
+      <div className="ambient-orb absolute right-[8%] top-[18%] h-64 w-64 rounded-full bg-rune/10 blur-3xl [animation-delay:1.2s]" />
+      <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-white/5 to-transparent" />
+    </div>
+  );
+}
+
+function QuickLaunch({ state, nextQuest, setPage, refresh, wording }: { state: DashboardState; nextQuest: Quest | null; setPage: (page: Page) => void; refresh: () => Promise<void>; wording: Record<string, string> }) {
+  const [syncing, setSyncing] = useState(false);
+  const todayPct = Math.min(100, Math.round((state.goals.daily_xp / Math.max(1, state.goals.daily_goal)) * 100));
+  return (
+    <section className="mb-6 grid gap-3 lg:grid-cols-[1fr_auto_auto_auto]">
+      <motion.button
+        whileHover={{ y: -2 }}
+        whileTap={{ scale: 0.99 }}
+        onClick={() => setPage("quests")}
+        className="group min-h-20 rounded-lg border border-jade/20 bg-gradient-to-br from-jade/12 to-ink/70 p-4 text-left shadow-glow transition hover:border-jade/45"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-jade">Next move</p>
+            <h3 className="mt-1 line-clamp-1 text-lg font-black text-white">{nextQuest?.title ?? "Create a focused quest"}</h3>
+            <p className="mt-1 text-sm text-slate-400">{nextQuest ? `${nextQuest.subject} - ${nextQuest.xp_reward} XP` : `${wording.focus} starts with one clear action.`}</p>
+          </div>
+          <Target className="text-jade transition group-hover:scale-110" />
+        </div>
+      </motion.button>
+      <QuickButton icon={<Play size={17} />} label="Focus" sub="Timer" onClick={() => setPage("timer")} />
+      <QuickButton icon={<Wand2 size={17} />} label={`${todayPct}%`} sub="Daily XP" onClick={() => setPage("stats")} />
+      <QuickButton
+        icon={<RefreshCcw size={17} className={syncing ? "animate-spin" : ""} />}
+        label={syncing ? "Syncing" : "Sync"}
+        sub="Feeds"
+        onClick={async () => {
+          setSyncing(true);
+          try {
+            await api.syncAll();
+            await refresh();
+          } finally {
+            setSyncing(false);
+          }
+        }}
+      />
+    </section>
+  );
+}
+
+function QuickButton({ icon, label, sub, onClick }: { icon: React.ReactNode; label: string; sub: string; onClick: () => void | Promise<void> }) {
+  return (
+    <motion.button
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={() => void onClick()}
+      className="rounded-lg border border-white/10 bg-panel/70 px-4 py-3 text-left shadow-glow backdrop-blur transition hover:border-gold/30 hover:bg-white/8"
+    >
+      <span className="mb-2 grid h-9 w-9 place-items-center rounded-md bg-white/8 text-gold">{icon}</span>
+      <span className="block text-lg font-black text-white">{label}</span>
+      <span className="text-xs text-slate-400">{sub}</span>
+    </motion.button>
+  );
+}
+
 function Dashboard({ state, refresh, completeWithReward, wording }: { state: DashboardState; refresh: () => Promise<void>; completeWithReward: (action: () => Promise<void>, major?: boolean) => Promise<void>; wording: Record<string, string> }) {
   const daily = state.quests.filter((q) => q.type === "daily");
   const connectedCount = Number(state.integrations.ticktick.connected) + Number(state.integrations.google_calendar.connected);
+  const nextQuest = selectNextQuest(state.quests);
   return (
     <div className="grid gap-4 xl:grid-cols-[1.2fr_.8fr]">
       <Panel className="xl:row-span-2">
         <PanelHeader title={`${wording.quests} Board`} action={<DashboardActions refresh={refresh} />} />
-        <QuestBoard quests={daily.length ? daily : state.quests.slice(0, 6)} completeWithReward={completeWithReward} />
+        <NextActionCard quest={nextQuest} completeWithReward={completeWithReward} />
+        <EnhancedQuestBoard quests={daily.length ? daily : state.quests.slice(0, 6)} completeWithReward={completeWithReward} />
       </Panel>
       <Panel>
         <PanelHeader title="Integration Intel" />
@@ -261,19 +340,19 @@ function Dashboard({ state, refresh, completeWithReward, wording }: { state: Das
       </Panel>
       <Panel>
         <PanelHeader title="Calendar Timeline" />
-        <Timeline events={state.events} />
+        <Timeline events={state.events.slice(0, 4)} />
       </Panel>
       <Panel>
         <PanelHeader title="Subject Mastery" />
-        <MasteryCards mastery={state.mastery} />
+        <MasteryCards mastery={state.mastery.slice(0, 4)} />
       </Panel>
       <Panel>
         <PanelHeader title="Achievements" />
-        <AchievementGrid achievements={state.locked_achievements} />
+        <AchievementGrid achievements={state.locked_achievements.slice(0, 4)} />
       </Panel>
       <Panel>
         <PanelHeader title="Recent Sessions" />
-        <SessionList sessions={state.sessions} />
+        <SessionList sessions={state.sessions.slice(0, 4)} />
       </Panel>
     </div>
   );
@@ -316,7 +395,7 @@ function Quests({ state, refresh, completeWithReward }: { state: DashboardState;
       </Panel>
       <Panel>
         <PanelHeader title="Quest Log" />
-        <QuestBoard quests={state.quests} completeWithReward={completeWithReward} />
+        <EnhancedQuestBoard quests={state.quests} completeWithReward={completeWithReward} />
       </Panel>
     </div>
   );
@@ -454,7 +533,7 @@ function TickTick({ state, refresh, completeWithReward }: { state: DashboardStat
         </Button>
       </div>
       <div className="mt-5">
-        <QuestBoard quests={state.quests.filter((quest) => quest.external_source === "ticktick" || !quest.completed)} completeWithReward={completeWithReward} />
+        <EnhancedQuestBoard quests={state.quests.filter((quest) => quest.external_source === "ticktick" || !quest.completed)} completeWithReward={completeWithReward} />
       </div>
     </Panel>
   );
@@ -551,18 +630,88 @@ function SettingsPage({ state, refresh }: { state: DashboardState; refresh: () =
   );
 }
 
-function QuestBoard({ quests, completeWithReward }: { quests: Quest[]; completeWithReward: (action: () => Promise<void>, major?: boolean) => Promise<void> }) {
-  if (quests.length === 0) return <p className="text-sm text-slate-400">No quests yet.</p>;
+function NextActionCard({ quest, completeWithReward }: { quest: Quest | null; completeWithReward: (action: () => Promise<void>, major?: boolean) => Promise<void> }) {
+  if (!quest) {
+    return (
+      <div className="mb-3 rounded-lg border border-dashed border-white/15 bg-white/5 p-4">
+        <div className="flex items-center gap-3">
+          <Brain className="text-jade" />
+          <div>
+            <h3 className="font-black text-white">No active quest selected</h3>
+            <p className="text-sm text-slate-400">Add one small task to start a chain.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <motion.div layout className="focus-pulse mb-3 overflow-hidden rounded-lg border border-jade/25 bg-gradient-to-r from-jade/12 via-panel2/70 to-rune/12 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-jade">Recommended now</p>
+          <h3 className="mt-1 font-black text-white">{quest.title}</h3>
+          <p className="mt-1 text-sm text-slate-400">{quest.subject} - {questDueLabel(quest)} - {quest.xp_reward} XP</p>
+        </div>
+        <Button onClick={() => completeWithReward(() => api.completeQuest(quest.id).then(() => undefined), quest.difficulty === "hard" || quest.difficulty === "boss")}>
+          <Check size={16} /> Claim
+        </Button>
+      </div>
+    </motion.div>
+  );
+}
+
+function EnhancedQuestBoard({ quests, completeWithReward }: { quests: Quest[]; completeWithReward: (action: () => Promise<void>, major?: boolean) => Promise<void> }) {
+  if (quests.length === 0) return <EmptyState icon={<ListChecks />} title="No quests yet" body="Create one manual quest or sync TickTick to fill the board." />;
   return (
     <div className="grid gap-3">
       {quests.map((quest, index) => (
         <motion.div
           key={quest.id}
+          layout
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
+          whileHover={{ y: -2, scale: 1.005 }}
+          whileTap={{ scale: 0.995 }}
           transition={{ delay: index * 0.025 }}
-          className="rounded-lg border border-white/10 bg-gradient-to-br from-ink/80 to-panel2/45 p-4"
+          className={`quest-card relative overflow-hidden rounded-lg border bg-gradient-to-br from-ink/85 to-panel2/45 p-4 ${quest.completed ? "border-white/8 opacity-60" : questBorder(quest.difficulty)}`}
         >
+          <div className={`absolute bottom-0 left-0 top-0 w-1 ${questAccent(quest.difficulty)}`} />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0 pl-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className={quest.completed ? "font-black text-slate-500 line-through" : "font-black text-white"}>{quest.title}</h3>
+                <Badge tone={quest.difficulty}>{quest.difficulty}</Badge>
+                <span className="rounded border border-gold/30 bg-gold/12 px-2 py-1 text-xs font-bold text-gold">{quest.xp_reward} XP</span>
+                {quest.external_source && <span className="rounded border border-rune/30 bg-rune/15 px-2 py-1 text-xs text-violet-200">{quest.external_source}</span>}
+              </div>
+              <p className="mt-1 text-sm text-slate-400">{quest.subject} - {quest.type} - {questDueLabel(quest)}</p>
+            </div>
+            <Button className="shrink-0" disabled={quest.completed} onClick={() => completeWithReward(() => api.completeQuest(quest.id).then(() => undefined), quest.difficulty === "hard" || quest.difficulty === "boss")}>
+              <Check size={16} /> {quest.completed ? "Done" : "Claim"}
+            </Button>
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+function QuestBoard({ quests, completeWithReward }: { quests: Quest[]; completeWithReward: (action: () => Promise<void>, major?: boolean) => Promise<void> }) {
+  if (quests.length === 0) return <EmptyState icon={<ListChecks />} title="No quests yet" body="Create one manual quest or sync TickTick to fill the board." />;
+  return (
+    <div className="grid gap-3">
+      {quests.map((quest, index) => (
+        <motion.div
+          key={quest.id}
+          layout
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          whileHover={{ y: -2, scale: 1.005 }}
+          whileTap={{ scale: 0.995 }}
+          transition={{ delay: index * 0.025 }}
+          className={`quest-card relative overflow-hidden rounded-lg border bg-gradient-to-br from-ink/85 to-panel2/45 p-4 ${quest.completed ? "border-white/8 opacity-60" : questBorder(quest.difficulty)}`}
+        >
+          <div className={`absolute bottom-0 left-0 top-0 w-1 ${questAccent(quest.difficulty)}`} />
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="flex flex-wrap items-center gap-2">
@@ -809,10 +958,20 @@ function ProgressRing({ value, max, label }: { value: number; max: number; label
 
 function MiniStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-ink/60 p-3">
+    <motion.div whileHover={{ y: -2 }} className="rounded-lg border border-white/10 bg-ink/60 p-3">
       <div className="mb-2">{icon}</div>
       <p className="text-xs text-slate-400">{label}</p>
       <p className="text-2xl font-black text-white">{value}</p>
+    </motion.div>
+  );
+}
+
+function EmptyState({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-white/15 bg-white/5 p-5 text-center">
+      <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-md bg-jade/10 text-jade">{icon}</div>
+      <h3 className="font-black text-white">{title}</h3>
+      <p className="mt-1 text-sm text-slate-400">{body}</p>
     </div>
   );
 }
@@ -841,6 +1000,37 @@ function PanelHeader({ title, action }: { title: string; action?: React.ReactNod
       {action}
     </div>
   );
+}
+
+function selectNextQuest(quests: Quest[]) {
+  const active = quests.filter((quest) => !quest.completed);
+  if (active.length === 0) return null;
+  const difficultyRank: Record<string, number> = { boss: 4, hard: 3, medium: 2, easy: 1 };
+  return [...active].sort((a, b) => {
+    const dueA = a.due_date ? new Date(a.due_date).getTime() : Number.MAX_SAFE_INTEGER;
+    const dueB = b.due_date ? new Date(b.due_date).getTime() : Number.MAX_SAFE_INTEGER;
+    if (dueA !== dueB) return dueA - dueB;
+    return (difficultyRank[b.difficulty] ?? 1) - (difficultyRank[a.difficulty] ?? 1);
+  })[0];
+}
+
+function questDueLabel(quest: Quest) {
+  if (!quest.due_date) return "no due date";
+  if (quest.due_date === today) return "due today";
+  const due = new Date(`${quest.due_date}T00:00:00`);
+  const now = new Date(`${today}T00:00:00`);
+  const days = Math.round((due.getTime() - now.getTime()) / 86400000);
+  if (days < 0) return `${Math.abs(days)}d overdue`;
+  if (days === 1) return "due tomorrow";
+  return `due in ${days}d`;
+}
+
+function questBorder(difficulty: string) {
+  return { easy: "border-jade/20", medium: "border-gold/24", hard: "border-ember/25", boss: "border-rune/35 shadow-glow" }[difficulty] ?? "border-white/10";
+}
+
+function questAccent(difficulty: string) {
+  return { easy: "bg-jade", medium: "bg-gold", hard: "bg-ember", boss: "bg-rune" }[difficulty] ?? "bg-slate-500";
 }
 
 function difficultyXp(difficulty: string) {
