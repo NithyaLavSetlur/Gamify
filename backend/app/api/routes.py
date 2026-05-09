@@ -127,7 +127,7 @@ def dashboard(db: Session = Depends(get_db), settings: Settings = Depends(get_se
 
 
 @router.get("/health")
-def health(settings: Settings = Depends(get_settings)) -> dict:
+def health(settings: Settings = Depends(get_settings), db: Session = Depends(get_db)) -> dict:
     database_ok = True
     database_error = None
     try:
@@ -139,6 +139,8 @@ def health(settings: Settings = Depends(get_settings)) -> dict:
 
     ticktick_configured = bool(settings.ticktick_client_id and settings.ticktick_client_secret)
     google_configured = bool(settings.google_client_id and settings.google_client_secret)
+    ticktick_connected = bool(get_token(db, "ticktick"))
+    google_connected = bool(get_token(db, "google_calendar"))
     return {
         "status": "ok" if database_ok else "degraded",
         "app": settings.app_name,
@@ -152,15 +154,15 @@ def health(settings: Settings = Depends(get_settings)) -> dict:
         "integrations": {
             "ticktick": {
                 "configured": ticktick_configured,
-                "connected": False,
+                "connected": ticktick_connected,
                 "redirect_uri": settings.ticktick_redirect_uri,
-                "status": "not_connected_yet" if not ticktick_configured else "credentials_configured",
+                "status": "connected" if ticktick_connected else ("not_connected_yet" if not ticktick_configured else "credentials_configured"),
             },
             "google_calendar": {
                 "configured": google_configured,
-                "connected": False,
+                "connected": google_connected,
                 "redirect_uri": settings.google_redirect_uri,
-                "status": "not_connected_yet" if not google_configured else "credentials_configured",
+                "status": "connected" if google_connected else ("not_connected_yet" if not google_configured else "credentials_configured"),
             },
         },
     }
