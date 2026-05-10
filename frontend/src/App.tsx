@@ -194,7 +194,7 @@ export default function App() {
       </AnimatePresence>
 
       <header className="sticky top-0 z-30 hidden border-b border-slate-200/80 bg-white/85 backdrop-blur-xl md:block">
-        <div className="mx-auto max-w-5xl px-4 py-3 md:px-6">
+        <div className="mx-auto max-w-6xl px-4 py-3 md:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
               onClick={() => setNavOpen((value) => !value)}
@@ -299,7 +299,7 @@ export default function App() {
         </nav>
       </aside>
 
-      <main className="mx-auto max-w-5xl px-4 py-4 md:px-6 md:py-6 lg:pl-0">
+      <main className="mx-auto max-w-6xl px-4 py-4 md:px-6 md:py-6 lg:pl-0">
         <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 px-4 py-3 backdrop-blur md:hidden">
           <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
             <Select value={page} onChange={(event) => setPage(event.target.value as Page)}>
@@ -312,7 +312,7 @@ export default function App() {
           </div>
         </header>
 
-        <div className="mx-auto max-w-5xl px-3 py-4 md:px-4 md:py-5">
+        <div className="mx-auto max-w-6xl px-3 py-4 md:px-4 md:py-5">
           {error && <div className="mb-4 rounded-md border border-ember/40 bg-ember/10 p-3 text-sm text-orange-100">{error}</div>}
           <RankHero state={state} wording={wording} />
       <QuickLaunch state={state} nextQuest={nextQuest} setPage={setPage} refresh={refresh} wording={wording} />
