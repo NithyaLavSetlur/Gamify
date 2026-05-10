@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 export function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <section className={`panel-hover rounded-xl border border-slate-200/80 bg-white/90 p-3.5 shadow-[0_1px_0_rgba(15,23,42,0.03),0_10px_26px_rgba(71,61,104,0.07)] backdrop-blur sm:p-4 ${className}`}>{children}</section>;
+  return <section className={`panel-hover rounded-xl border border-slate-200/80 bg-white/90 p-4 shadow-[0_1px_0_rgba(15,23,42,0.03),0_10px_26px_rgba(71,61,104,0.07)] backdrop-blur sm:p-5 xl:p-6 ${className}`}>{children}</section>;
 }
 
 export function Button({
@@ -19,7 +19,7 @@ export function Button({
   return (
     <button
       type={type}
-      className={`inline-flex min-h-9 items-center justify-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold transition duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
+      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-4 py-2 text-[0.95rem] font-semibold transition duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
       {...props}
     >
       {children}
@@ -30,7 +30,7 @@ export function Button({
 export function Field(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
-      className="min-h-9 w-full rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-400 focus:shadow-[0_0_0_4px_rgba(139,124,246,0.08)]"
+      className="min-h-10 w-full rounded-lg border border-slate-200 bg-white/90 px-3.5 py-2.5 text-[0.95rem] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-400 focus:shadow-[0_0_0_4px_rgba(139,124,246,0.08)]"
       {...props}
     />
   );
@@ -39,7 +39,7 @@ export function Field(props: React.InputHTMLAttributes<HTMLInputElement>) {
 export function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
-      className="min-h-20 w-full rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-400 focus:shadow-[0_0_0_4px_rgba(139,124,246,0.08)]"
+      className="min-h-24 w-full rounded-lg border border-slate-200 bg-white/90 px-3.5 py-2.5 text-[0.95rem] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-400 focus:shadow-[0_0_0_4px_rgba(139,124,246,0.08)]"
       {...props}
     />
   );
@@ -48,7 +48,7 @@ export function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
 export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
-      className="min-h-9 w-full rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-violet-400 focus:shadow-[0_0_0_4px_rgba(139,124,246,0.08)]"
+      className="min-h-10 w-full rounded-lg border border-slate-200 bg-white/90 px-3.5 py-2.5 text-[0.95rem] text-slate-900 outline-none transition focus:border-violet-400 focus:shadow-[0_0_0_4px_rgba(139,124,246,0.08)]"
       {...props}
     />
   );

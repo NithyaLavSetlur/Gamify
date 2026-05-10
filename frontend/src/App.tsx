@@ -200,7 +200,7 @@ export default function App() {
       </AnimatePresence>
 
       <header className="sticky top-0 z-30 hidden border-b border-slate-200/80 bg-white/85 backdrop-blur-xl md:block">
-        <div className="mx-auto max-w-6xl px-4 py-3 md:px-6">
+        <div className="mx-auto max-w-[96rem] px-4 py-3 md:px-6 xl:px-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
               onClick={() => setNavOpen((value) => !value)}
@@ -329,7 +329,7 @@ export default function App() {
         </nav>
       </aside>
 
-      <main className="mx-auto max-w-6xl px-3 py-3 md:px-6 md:py-6">
+      <main className="mx-auto w-full max-w-[96rem] px-3 py-3 md:px-6 md:py-6 xl:px-8">
         <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 px-4 py-3 backdrop-blur md:hidden">
           <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
             <Select value={page} onChange={(event) => setPage(event.target.value as Page)}>
@@ -345,7 +345,7 @@ export default function App() {
           </div>
         </header>
 
-        <div className="mx-auto max-w-6xl px-0 py-4 md:px-0 md:py-5">
+        <div className="mx-auto w-full max-w-[96rem] px-0 py-4 md:px-0 md:py-5">
           {error && <div className="mb-4 rounded-md border border-ember/40 bg-ember/10 p-3 text-sm text-orange-100">{error}</div>}
           <RankHero state={state} wording={wording} />
       <QuickLaunch state={state} nextQuest={nextQuest} setPage={setPage} refresh={refresh} wording={wording} />
@@ -437,7 +437,7 @@ function QuickLaunch({ state, nextQuest, setPage, refresh, wording }: { state: D
         whileHover={{ y: -2 }}
         whileTap={{ scale: 0.99 }}
         onClick={() => setPage("quests")}
-        className="group col-span-3 min-h-16 rounded-lg border border-jade/20 bg-gradient-to-br from-jade/12 to-ink/70 p-3.5 text-left shadow-glow transition hover:border-jade/45 lg:col-span-1"
+        className="group col-span-3 min-h-20 rounded-lg border border-jade/20 bg-gradient-to-br from-jade/12 to-ink/70 p-4 text-left shadow-glow transition hover:border-jade/45 lg:col-span-1 xl:p-5"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -474,11 +474,11 @@ function QuickButton({ icon, label, sub, onClick }: { icon: React.ReactNode; lab
       whileHover={{ y: -2 }}
       whileTap={{ scale: 0.98 }}
       onClick={() => void onClick()}
-      className="rounded-lg border border-white/10 bg-panel/70 px-3 py-2.5 text-left shadow-glow backdrop-blur transition hover:border-gold/30 hover:bg-white/8 sm:px-3.5 sm:py-3"
+      className="rounded-lg border border-white/10 bg-panel/70 px-4 py-3 text-left shadow-glow backdrop-blur transition hover:border-gold/30 hover:bg-white/8 xl:px-5 xl:py-4"
     >
-      <span className="mb-2 grid h-8 w-8 place-items-center rounded-md bg-white/8 text-gold sm:h-9 sm:w-9">{icon}</span>
-      <span className="block text-base font-black text-white sm:text-lg">{label}</span>
-      <span className="text-xs text-slate-400">{sub}</span>
+      <span className="mb-2 grid h-9 w-9 place-items-center rounded-md bg-white/8 text-gold sm:h-10 sm:w-10">{icon}</span>
+      <span className="block text-lg font-black text-white xl:text-xl">{label}</span>
+      <span className="text-sm text-slate-400">{sub}</span>
     </motion.button>
   );
 }
@@ -1831,27 +1831,27 @@ function PomodoroTaskRow({
 
 function QuickStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-ink/55 p-3 text-center">
+    <div className="rounded-lg border border-white/10 bg-ink/55 p-4 text-center">
       <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className="mt-1 text-lg font-black text-white">{value}</p>
+      <p className="mt-1 text-xl font-black text-white">{value}</p>
     </div>
   );
 }
 
 function SettingPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-ink/55 p-3">
+    <div className="rounded-lg border border-white/10 bg-ink/55 p-4">
       <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className="mt-1 text-sm font-bold text-white">{value}</p>
+      <p className="mt-1 text-base font-bold text-white">{value}</p>
     </div>
   );
 }
 
 function TogglePill({ label, active }: { label: string; active: boolean }) {
   return (
-    <div className={`rounded-lg border p-3 ${active ? "border-jade/25 bg-jade/10" : "border-white/10 bg-ink/55"}`}>
-      <p className="text-sm font-bold text-white">{label}</p>
-      <p className="mt-1 text-xs text-slate-400">{active ? "Enabled" : "Disabled"}</p>
+    <div className={`rounded-lg border p-4 ${active ? "border-jade/25 bg-jade/10" : "border-white/10 bg-ink/55"}`}>
+      <p className="text-base font-bold text-white">{label}</p>
+      <p className="mt-1 text-sm text-slate-400">{active ? "Enabled" : "Disabled"}</p>
     </div>
   );
 }
@@ -2841,10 +2841,10 @@ function ProgressRing({ value, max, label }: { value: number; max: number; label
 
 function MiniStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <motion.div whileHover={{ y: -2 }} className="rounded-lg border border-white/10 bg-ink/60 p-3">
-      <div className="mb-2">{icon}</div>
-      <p className="text-xs text-slate-400">{label}</p>
-      <p className="text-xl font-black text-white">{value}</p>
+    <motion.div whileHover={{ y: -2 }} className="rounded-lg border border-white/10 bg-ink/60 p-4 xl:p-5">
+      <div className="mb-3 text-xl">{icon}</div>
+      <p className="text-sm text-slate-400">{label}</p>
+      <p className="mt-1 text-2xl font-black text-white">{value}</p>
     </motion.div>
   );
 }
