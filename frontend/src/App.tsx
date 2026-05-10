@@ -26,6 +26,7 @@ import {
   Snowflake,
   Sparkles,
   Swords,
+  Moon,
   Target as TargetIcon,
   TimerReset,
   Target,
@@ -34,7 +35,8 @@ import {
   MessageCircle,
   Send,
   X,
-  Zap
+  Zap,
+  Sun
 } from "lucide-react";
 import { api, apiBaseUrl } from "./lib/api";
 import type { AssistantMessage, AssistantState, BossFight, CalendarEvent, DashboardState, DeploymentConfig, IntegrationCalendarEvent, IntegrationIntelligence, IntegrationTask, PomodoroBoard, PomodoroTask, Quest, StudySession } from "./types";
@@ -65,6 +67,14 @@ const difficultyTone: Record<string, string> = {
 export default function App() {
   const [page, setPage] = useState<Page>("timer");
   const [navOpen, setNavOpen] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    try {
+      const stored = window.localStorage.getItem("gamify-theme");
+      return stored === "dark" ? "dark" : "light";
+    } catch {
+      return "light";
+    }
+  });
   const [state, setState] = useState<DashboardState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -106,6 +116,19 @@ export default function App() {
     setNavOpen(false);
   }, [page]);
 
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("gamify-theme", theme);
+    } catch {
+      // Ignore storage failures.
+    }
+    document.documentElement.dataset.theme = theme;
+    document.body.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    document.body.classList.toggle("theme-dark", theme === "dark");
+    document.body.classList.toggle("theme-light", theme === "light");
+  }, [theme]);
+
   const wording = state?.profile.shrivaishnava_mode
     ? { quests: "Sadhana", focus: "Mind refinement", streak: "Discipline flame", mission: "Today's refinement" }
     : { quests: "Quests", focus: "Focus", streak: "Daily streak", mission: "Today's mission" };
@@ -117,33 +140,41 @@ export default function App() {
     await refresh();
   };
 
+  const toggleTheme = () => setTheme((current) => (current === "light" ? "dark" : "light"));
+  const themeLabel = theme === "light" ? "Dark mode" : "Light mode";
+  const ThemeIcon = theme === "light" ? Moon : Sun;
+
   if (loading) {
     return (
-      <main className="grid min-h-screen place-items-center text-slate-200">
-      <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
-        <Shield className="mx-auto mb-3 text-jade" size={42} />
-        <p className="font-black">Loading your lock-in room...</p>
-      </motion.div>
-      </main>
+      <div className={theme === "light" ? "claude-shell theme-light" : "theme-dark"}>
+        <main className="grid min-h-screen place-items-center text-slate-200">
+          <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
+            <Shield className="mx-auto mb-3 text-jade" size={42} />
+            <p className="font-black">Loading your lock-in room...</p>
+          </motion.div>
+        </main>
+      </div>
     );
   }
 
   if (!state) {
     return (
-      <main className="grid min-h-screen place-items-center px-4 text-slate-200">
-        <Panel className="max-w-xl">
-          <h1 className="text-xl font-bold">Backend unavailable</h1>
-          <p className="mt-2 text-sm text-slate-400">{error || "Start FastAPI on port 8000."}</p>
-          <Button className="mt-4" onClick={refresh}>
-            <RefreshCcw size={16} /> Retry
-          </Button>
-        </Panel>
-      </main>
+      <div className={theme === "light" ? "claude-shell theme-light" : "theme-dark"}>
+        <main className="grid min-h-screen place-items-center px-4 text-slate-200">
+          <Panel className="max-w-xl">
+            <h1 className="text-xl font-bold">Backend unavailable</h1>
+            <p className="mt-2 text-sm text-slate-400">{error || "Start FastAPI on port 8000."}</p>
+            <Button className="mt-4" onClick={refresh}>
+              <RefreshCcw size={16} /> Retry
+            </Button>
+          </Panel>
+        </main>
+      </div>
     );
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden text-slate-100">
+    <div className={`min-h-screen overflow-x-hidden text-slate-100 ${theme === "light" ? "claude-shell theme-light" : "theme-dark"}`}>
       <AmbientBackdrop />
       <RewardBurst seed={rewardBurst} />
       <AssistantBubbleV2 />
@@ -187,6 +218,9 @@ export default function App() {
               >
                 Lock in
               </button>
+              <Button variant="ghost" onClick={toggleTheme} className="rounded-full">
+                <ThemeIcon size={16} /> {themeLabel}
+              </Button>
             </div>
           </div>
           <AnimatePresence>
@@ -267,9 +301,15 @@ export default function App() {
 
       <main className="mx-auto max-w-5xl px-4 py-4 md:px-6 md:py-6 lg:pl-0">
         <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 px-4 py-3 backdrop-blur md:hidden">
-          <Select value={page} onChange={(event) => setPage(event.target.value as Page)}>
-            {nav.map((item) => <option value={item.key} key={item.key}>{item.label}</option>)}
-          </Select>
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+            <Select value={page} onChange={(event) => setPage(event.target.value as Page)}>
+              {nav.map((item) => <option value={item.key} key={item.key}>{item.label}</option>)}
+            </Select>
+            <Button variant="ghost" onClick={toggleTheme} className="justify-center rounded-lg">
+              <ThemeIcon size={16} />
+              <span className="hidden sm:inline">{themeLabel}</span>
+            </Button>
+          </div>
         </header>
 
         <div className="mx-auto max-w-5xl px-3 py-4 md:px-4 md:py-5">
