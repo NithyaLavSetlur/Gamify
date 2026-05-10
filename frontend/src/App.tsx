@@ -81,6 +81,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [levelFlash, setLevelFlash] = useState(false);
   const [rewardBurst, setRewardBurst] = useState(0);
+  const [lockInRequest, setLockInRequest] = useState(0);
 
   const refresh = async () => {
     try {
@@ -144,6 +145,10 @@ export default function App() {
   const toggleTheme = () => setTheme((current) => (current === "light" ? "dark" : "light"));
   const themeLabel = theme === "light" ? "Dark mode" : "Light mode";
   const ThemeIcon = theme === "light" ? Moon : Sun;
+  const openLockIn = () => {
+    setPage("timer");
+    setLockInRequest(Date.now());
+  };
 
   if (loading) {
     return (
@@ -214,7 +219,7 @@ export default function App() {
               <Badge tone="boss">Level {state.profile.level}</Badge>
               <Badge tone="easy">{state.profile.rank_title}</Badge>
               <button
-                onClick={() => setPage("timer")}
+                onClick={openLockIn}
                 className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-violet-200 hover:text-slate-900"
               >
                 Lock in
@@ -334,6 +339,9 @@ export default function App() {
               <ThemeIcon size={16} />
               <span className="hidden sm:inline">{themeLabel}</span>
             </Button>
+            <Button onClick={openLockIn} className="justify-center rounded-lg sm:hidden">
+              <Maximize2 size={16} /> Lock in
+            </Button>
           </div>
         </header>
 
@@ -346,7 +354,7 @@ export default function App() {
               {page === "dashboard" && <Dashboard state={state} refresh={refresh} completeWithReward={completeWithReward} wording={wording} />}
               {page === "integrations" && <IntegrationDataHub refresh={refresh} completeWithReward={completeWithReward} />}
               {page === "quests" && <Quests state={state} refresh={refresh} completeWithReward={completeWithReward} />}
-              {page === "timer" && <StudyTimer state={state} refresh={refresh} triggerReward={() => setRewardBurst(Date.now())} />}
+              {page === "timer" && <StudyTimer state={state} refresh={refresh} triggerReward={() => setRewardBurst(Date.now())} lockInRequest={lockInRequest} />}
               {page === "bosses" && <Bosses state={state} refresh={refresh} completeWithReward={completeWithReward} />}
               {page === "calendar" && <CalendarView state={state} refresh={refresh} />}
               {page === "ticktick" && <TickTick state={state} refresh={refresh} completeWithReward={completeWithReward} />}
@@ -1244,7 +1252,7 @@ function Quests({ state, refresh, completeWithReward }: { state: DashboardState;
 type TimerView = "pomodoro" | "rpg";
 type PomodoroPhase = "pomodoro" | "short_break" | "long_break";
 
-function StudyTimer({ state, refresh, triggerReward }: { state: DashboardState; refresh: () => Promise<void>; triggerReward: () => void }) {
+function StudyTimer({ state, refresh, triggerReward, lockInRequest }: { state: DashboardState; refresh: () => Promise<void>; triggerReward: () => void; lockInRequest: number }) {
   const [view, setView] = useState<TimerView>(() => {
     try {
       return (window.localStorage.getItem("gamify-timer-view") as TimerView) || "pomodoro";
@@ -1260,6 +1268,10 @@ function StudyTimer({ state, refresh, triggerReward }: { state: DashboardState; 
       // Ignore storage failures in private browsing or restricted environments.
     }
   }, [view]);
+
+  useEffect(() => {
+    if (lockInRequest > 0) setView("pomodoro");
+  }, [lockInRequest]);
 
   return (
     <div className="space-y-4">
@@ -1286,7 +1298,7 @@ function StudyTimer({ state, refresh, triggerReward }: { state: DashboardState; 
         </p>
       </Panel>
       {view === "pomodoro" ? (
-        <PomodoroTimer state={state} refresh={refresh} triggerReward={triggerReward} />
+        <PomodoroTimer state={state} refresh={refresh} triggerReward={triggerReward} lockInRequest={lockInRequest} />
       ) : (
         <RpgTimer refresh={refresh} triggerReward={triggerReward} />
       )}
@@ -1347,7 +1359,7 @@ function RpgTimer({ refresh, triggerReward }: { refresh: () => Promise<void>; tr
   );
 }
 
-function PomodoroTimer({ state, refresh, triggerReward }: { state: DashboardState; refresh: () => Promise<void>; triggerReward: () => void }) {
+function PomodoroTimer({ state, refresh, triggerReward, lockInRequest }: { state: DashboardState; refresh: () => Promise<void>; triggerReward: () => void; lockInRequest: number }) {
   const board = state.pomodoro;
   const settings = board.settings;
   const [phase, setPhase] = useState<PomodoroPhase>("pomodoro");
@@ -1372,6 +1384,10 @@ function PomodoroTimer({ state, refresh, triggerReward }: { state: DashboardStat
   useEffect(() => {
     if (showSettings) setSettingsDraft(settings);
   }, [showSettings, settings]);
+
+  useEffect(() => {
+    if (lockInRequest > 0) setLockInOpen(true);
+  }, [lockInRequest]);
 
   useEffect(() => {
     if (!running) return;
