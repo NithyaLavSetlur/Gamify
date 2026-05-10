@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     production_frontend_url: str = ""
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     secret_key: str = "change-me-local-dev"
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
 
     ticktick_client_id: str = ""
     ticktick_client_secret: str = ""

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 import re
 from collections import Counter
 from typing import Any
 
+import httpx
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.models.entities import AssistantMemory, AssistantMessage
 
 
@@ -149,8 +152,14 @@ def process_message(db: Session, message: str) -> dict[str, Any]:
     for item in extracted["memories"]:
         upsert_memory(db, item["category"], item["key"], item["value"], item["weight"], user_message.id)
 
+    summary = summarize_memories(db.query(AssistantMemory).all())
     pending_question = pick_follow_up_question(cleaned, extracted["memories"])
-    if pending_question:
+    ai_reply = generate_ai_reply(cleaned, summary, pending_question)
+    if ai_reply:
+        reply = ai_reply["reply"]
+        pending_question = ai_reply["follow_up_question"] or pending_question
+        needs_follow_up = bool(ai_reply["needs_follow_up"])
+    elif pending_question:
         reply = pending_question
         needs_follow_up = True
     else:
@@ -167,7 +176,7 @@ def process_message(db: Session, message: str) -> dict[str, Any]:
         "needs_follow_up": needs_follow_up,
         "follow_up_question": pending_question,
         "memories_added": extracted["memories"],
-        "summary": summarize_memories(db.query(AssistantMemory).all()),
+        "summary": summary,
     }
 
 
@@ -278,6 +287,82 @@ def upsert_memory(db: Session, category: str, key: str, value: str, weight: int,
     db.commit()
     db.refresh(memory)
     return memory
+
+
+def generate_ai_reply(message: str, summary: dict[str, Any], pending_question: str | None) -> dict[str, Any] | None:
+    settings = get_settings()
+    if not settings.openai_api_key:
+        return None
+
+    system_prompt = (
+        "You are Context AI inside a study productivity app. "
+        "Your job is to be a tiny, practical chatbot that learns user context. "
+        "Reply in 1-2 short sentences, max 24 words total. "
+        "Be normal, calm, and direct. "
+        "If you need more detail, ask one short question. "
+        "If the user is giving context, acknowledge it briefly. "
+        "Never be verbose."
+    )
+    user_prompt = {
+        "message": message,
+        "known_context": summary.get("context_map", {}),
+        "pending_question": pending_question,
+        "response_rules": {
+            "max_words": 24,
+            "if_context": "acknowledge briefly and state how it will be used",
+            "if_unclear": "ask one concise follow-up question",
+        },
+    }
+    payload = {
+        "model": settings.openai_model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": json.dumps(user_prompt, ensure_ascii=True)},
+        ],
+        "temperature": 0.2,
+        "max_tokens": 80,
+    }
+    try:
+        response = httpx.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {settings.openai_api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=20,
+        )
+        response.raise_for_status()
+        data = response.json()
+        content = (((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
+        if not content:
+            return None
+        parsed = parse_ai_response(content)
+        if parsed:
+            return parsed
+        return {"reply": content[:240], "needs_follow_up": False, "follow_up_question": None}
+    except Exception:
+        return None
+
+
+def parse_ai_response(content: str) -> dict[str, Any] | None:
+    text = content.strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+    try:
+        parsed = json.loads(text)
+    except Exception:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    reply = str(parsed.get("reply") or "").strip()
+    if not reply:
+        return None
+    return {
+        "reply": reply[:240],
+        "needs_follow_up": bool(parsed.get("needs_follow_up")),
+        "follow_up_question": (str(parsed.get("follow_up_question")).strip() or None),
+    }
 
 
 def acknowledgement(memories: list[dict[str, Any]], message: str) -> str:

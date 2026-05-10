@@ -64,6 +64,7 @@ const difficultyTone: Record<string, string> = {
 
 export default function App() {
   const [page, setPage] = useState<Page>("timer");
+  const [navOpen, setNavOpen] = useState(false);
   const [state, setState] = useState<DashboardState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -99,6 +100,10 @@ export default function App() {
     } catch {
       // Ignore storage failures in private browsing or restricted environments.
     }
+  }, [page]);
+
+  useEffect(() => {
+    setNavOpen(false);
   }, [page]);
 
   const wording = state?.profile.shrivaishnava_mode
@@ -158,46 +163,72 @@ export default function App() {
       </AnimatePresence>
 
       <header className="sticky top-0 z-30 hidden border-b border-slate-200/80 bg-white/85 backdrop-blur-xl md:block">
-        <div className="mx-auto max-w-7xl px-4 py-3 md:px-6">
+        <div className="mx-auto max-w-6xl px-4 py-3 md:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-violet-600 text-white shadow-[0_10px_24px_rgba(109,87,230,0.16)]">
-                <Shield size={18} />
+            <button
+              onClick={() => setNavOpen((value) => !value)}
+              className="group flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3 py-2.5 shadow-[0_10px_24px_rgba(71,61,104,0.08)] transition hover:border-violet-200 hover:shadow-[0_16px_30px_rgba(109,87,230,0.12)]"
+            >
+              <div className="grid h-10 w-10 place-items-center rounded-full bg-violet-600 text-white">
+                <Shield size={16} />
               </div>
-              <div className="min-w-0">
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Study workspace</p>
-                <h1 className="truncate text-base font-black text-slate-900">{state.profile.display_name}</h1>
+              <div className="text-left">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Study workspace</p>
+                <h1 className="text-sm font-black text-slate-900">{state.profile.display_name}</h1>
               </div>
-            </div>
+              <ChevronRight className={`ml-1 transition duration-300 ${navOpen ? "rotate-90" : "rotate-0"}`} size={16} />
+            </button>
             <div className="flex items-center gap-2">
               <Badge tone="boss">Level {state.profile.level}</Badge>
               <Badge tone="easy">{state.profile.rank_title}</Badge>
+              <button
+                onClick={() => setPage("timer")}
+                className="rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-violet-200 hover:text-slate-900"
+              >
+                Lock in
+              </button>
             </div>
           </div>
-          <nav className="mt-3 overflow-x-auto pb-1">
-            <div className="flex min-w-max gap-2">
-              {nav.map((item) => {
-                const Icon = item.icon;
-                const active = page === item.key;
-                return (
-                  <motion.button
-                    key={item.key}
-                    whileHover={{ y: -1 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setPage(item.key)}
-                    className={`flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold transition ${
-                      active
-                        ? "border-violet-300 bg-violet-600 text-white shadow-[0_10px_24px_rgba(109,87,230,0.16)]"
-                        : "border-slate-200 bg-white/80 text-slate-600 hover:border-violet-200 hover:bg-violet-50 hover:text-slate-900"
-                    }`}
-                  >
-                    <Icon size={15} />
-                    <span>{item.label}</span>
-                  </motion.button>
-                );
-              })}
-            </div>
-          </nav>
+          <AnimatePresence>
+            {navOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="mt-3 overflow-hidden rounded-3xl border border-slate-200 bg-white/95 shadow-[0_20px_50px_rgba(71,61,104,0.12)]"
+              >
+                <div className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {nav.map((item) => {
+                    const Icon = item.icon;
+                    const active = page === item.key;
+                    return (
+                      <motion.button
+                        key={item.key}
+                        whileHover={{ y: -1 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setPage(item.key)}
+                        className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition ${
+                          active
+                            ? "border-violet-300 bg-violet-600 text-white"
+                            : "border-slate-200 bg-slate-50 text-slate-700 hover:border-violet-200 hover:bg-white"
+                        }`}
+                      >
+                        <span className={`grid h-9 w-9 place-items-center rounded-full ${active ? "bg-white/15" : "bg-white text-violet-600"}`}>
+                          <Icon size={16} />
+                        </span>
+                        <span>
+                          <span className="block text-sm font-black">{item.label}</span>
+                          <span className={`block text-xs ${active ? "text-violet-100" : "text-slate-500"}`}>
+                            Open {item.label.toLowerCase()}
+                          </span>
+                        </span>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </header>
 
@@ -234,8 +265,8 @@ export default function App() {
         </nav>
       </aside>
 
-      <main className="lg:pl-72">
-        <header className="sticky top-0 z-20 border-b border-white/10 bg-midnight/86 px-4 py-3 backdrop-blur lg:hidden">
+      <main className="mx-auto max-w-6xl px-4 py-4 md:px-6 md:py-6 lg:pl-0">
+        <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 px-4 py-3 backdrop-blur md:hidden">
           <Select value={page} onChange={(event) => setPage(event.target.value as Page)}>
             {nav.map((item) => <option value={item.key} key={item.key}>{item.label}</option>)}
           </Select>
@@ -2144,6 +2175,7 @@ function AssistantBubbleV2() {
   const [followUp, setFollowUp] = useState<string | null>(null);
   const [state, setState] = useState<AssistantState | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const draftRef = useRef<HTMLTextAreaElement | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -2168,6 +2200,15 @@ function AssistantBubbleV2() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [open, state?.messages.length]);
+
+  useEffect(() => {
+    const el = draftRef.current;
+    if (!el) return;
+    el.style.height = "0px";
+    const nextHeight = Math.min(el.scrollHeight, 140);
+    el.style.height = `${Math.max(44, nextHeight)}px`;
+    el.style.overflowY = el.scrollHeight > 140 ? "auto" : "hidden";
+  }, [draft, open]);
 
   const send = async (message: string) => {
     const trimmed = message.trim();
@@ -2290,19 +2331,21 @@ function AssistantBubbleV2() {
               </div>
               {followUp ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">{followUp}</div> : null}
               <div className="flex gap-2">
-                <input
+                <textarea
+                  ref={draftRef}
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter") {
+                    if (event.key === "Enter" && !event.shiftKey) {
                       event.preventDefault();
                       void send(draft);
                     }
                   }}
                   placeholder="Tell me anything about your study setup..."
-                  className="min-h-11 flex-1 rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-300 focus:shadow-[0_0_0_4px_rgba(139,124,246,0.08)]"
+                  rows={1}
+                  className="min-h-11 max-h-36 flex-1 resize-none rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-300 focus:shadow-[0_0_0_4px_rgba(139,124,246,0.08)]"
                 />
-                <Button onClick={() => void send(draft)} disabled={sending} className="shrink-0">
+                <Button onClick={() => void send(draft)} disabled={sending} className="shrink-0 rounded-2xl">
                   <Send size={16} />
                 </Button>
               </div>
