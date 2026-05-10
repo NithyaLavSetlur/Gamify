@@ -355,10 +355,10 @@ function RankHero({ state, wording }: { state: DashboardState; wording: Record<s
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-gold">
               <Trophy size={14} /> Current Rank: {profile.rank_title}
             </div>
-            <h2 className="text-3xl font-black text-white md:text-5xl">Level {profile.level} Study Run</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">{state.quote.body}</p>
+            <h2 className="text-3xl font-black !text-white md:text-5xl">Level {profile.level} Study Run</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-[rgba(255,255,255,0.72)]">{state.quote.body}</p>
             <div className="mt-5 max-w-2xl">
-              <div className="mb-2 flex justify-between text-sm text-slate-300">
+              <div className="mb-2 flex justify-between text-sm text-[rgba(255,255,255,0.72)]">
                 <span>{profile.xp_into_level} XP charged</span>
                 <span>{profile.xp_for_next_level} XP to next level</span>
               </div>
