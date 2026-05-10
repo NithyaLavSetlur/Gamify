@@ -5,22 +5,24 @@ from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from app.core.config import Settings
+from app.services.assistant_ai import memory_context_notes
 from app.services.integrations import google_calendar_inventory, infer_calendar_subject, ticktick_inventory
 
 
 def analyze_workflow(db, settings: Settings) -> dict[str, Any]:
     ticktick = ticktick_inventory(db)
     google = google_calendar_inventory(settings, db)
+    user_context = memory_context_notes(db)
     ticktick_tasks = flatten_ticktick_tasks(ticktick.get("projects", []))
     calendar_events = google.get("events", [])
     today = date.today()
     next_7_days = [today + timedelta(days=index) for index in range(7)]
 
-    task_context = build_task_context(ticktick_tasks, today)
-    calendar_context = build_calendar_context(calendar_events, next_7_days)
-    plan = build_daily_plan(next_7_days, task_context, calendar_context)
-    subject_scores = build_subject_scores(ticktick_tasks, calendar_events)
-    recommendations = build_recommendations(task_context, calendar_context, subject_scores)
+    task_context = build_task_context(ticktick_tasks, today, user_context)
+    calendar_context = build_calendar_context(calendar_events, next_7_days, user_context)
+    plan = build_daily_plan(next_7_days, task_context, calendar_context, user_context)
+    subject_scores = build_subject_scores(ticktick_tasks, calendar_events, user_context)
+    recommendations = build_recommendations(task_context, calendar_context, subject_scores, user_context)
 
     return {
         "engine": "deterministic_workflow_ai",
@@ -36,6 +38,7 @@ def analyze_workflow(db, settings: Settings) -> dict[str, Any]:
             "study_blocks": len(calendar_context["study_blocks"]),
             "exam_events": len(calendar_context["exam_events"]),
             "free_windows": sum(len(day["free_windows"]) for day in calendar_context["days"]),
+            "memory_notes": user_context["total_memories"],
         },
         "task_priorities": task_context["priorities"],
         "calendar_load": calendar_context["days"],
@@ -61,6 +64,7 @@ def analyze_workflow(db, settings: Settings) -> dict[str, Any]:
                 "use": "Keep study blocks visible as protected focus time and schedule around free windows.",
             },
         ],
+        "context_memory": user_context,
     }
 
 
@@ -72,7 +76,7 @@ def flatten_ticktick_tasks(projects: list[dict]) -> list[dict]:
     return tasks
 
 
-def build_task_context(tasks: list[dict], today: date) -> dict[str, Any]:
+def build_task_context(tasks: list[dict], today: date, user_context: dict[str, Any]) -> dict[str, Any]:
     open_tasks = [task for task in tasks if task.get("status") != "completed"]
     overdue_tasks = [task for task in open_tasks if as_date(task.get("due_date")) and as_date(task.get("due_date")) < today]
     due_today = [task for task in open_tasks if as_date(task.get("due_date")) == today]
@@ -95,6 +99,7 @@ def build_task_context(tasks: list[dict], today: date) -> dict[str, Any]:
         priority_score += xp_hint(task) / 5
         if task.get("difficulty") == "boss":
             priority_score += 25
+        priority_score += context_subject_bonus(task.get("subject"), user_context)
         if task.get("interpretation", {}).get("used_as") == "completed_xp":
             priority_score -= 5
         priorities.append(
@@ -123,7 +128,7 @@ def build_task_context(tasks: list[dict], today: date) -> dict[str, Any]:
     }
 
 
-def build_calendar_context(events: list[dict], days: list[date]) -> dict[str, Any]:
+def build_calendar_context(events: list[dict], days: list[date], user_context: dict[str, Any]) -> dict[str, Any]:
     study_blocks = [event for event in events if event.get("is_study_block")]
     exam_events = [event for event in events if event.get("interpretation", {}).get("used_as") == "boss_fight"]
     daily_rows = []
@@ -146,7 +151,7 @@ def build_calendar_context(events: list[dict], days: list[date]) -> dict[str, An
                     }
                     for event in day_events
                 ],
-                "free_windows": free_windows,
+                "free_windows": prioritize_windows(free_windows, user_context),
                 "busy_minutes": sum(window["duration_minutes"] for window in day_events_windows(day_events)),
                 "study_blocks": [event for event in day_events if event.get("is_study_block")],
                 "exam_events": [event for event in day_events if event.get("interpretation", {}).get("used_as") == "boss_fight"],
@@ -159,13 +164,17 @@ def build_calendar_context(events: list[dict], days: list[date]) -> dict[str, An
     }
 
 
-def build_daily_plan(days: list[date], task_context: dict[str, Any], calendar_context: dict[str, Any]) -> list[dict]:
+def build_daily_plan(days: list[date], task_context: dict[str, Any], calendar_context: dict[str, Any], user_context: dict[str, Any]) -> list[dict]:
     planned_tasks = task_context["priorities"]
     plan: list[dict] = []
     for current_day in days:
         day_key = current_day.isoformat()
         day_row = next((row for row in calendar_context["days"] if row["date"] == day_key), None)
-        free_minutes = sum(window["duration_minutes"] for window in (day_row or {}).get("free_windows", []))
+        free_windows = (day_row or {}).get("free_windows", [])
+        free_minutes = sum(window["duration_minutes"] for window in free_windows)
+        preferred_minutes = preferred_focus_minutes(user_context)
+        if preferred_minutes and free_minutes:
+            free_minutes = min(free_minutes, preferred_minutes)
         study_blocks = (day_row or {}).get("study_blocks", [])
         exam_events = (day_row or {}).get("exam_events", [])
         top_tasks = pick_tasks_for_day(planned_tasks, current_day, free_minutes)
@@ -183,7 +192,7 @@ def build_daily_plan(days: list[date], task_context: dict[str, Any], calendar_co
     return plan
 
 
-def build_subject_scores(tasks: list[dict], events: list[dict]) -> list[dict]:
+def build_subject_scores(tasks: list[dict], events: list[dict], user_context: dict[str, Any]) -> list[dict]:
     scores: dict[str, dict[str, Any]] = defaultdict(lambda: {"subject": "", "task_count": 0, "event_count": 0, "xp": 0, "score": 0})
     for task in tasks:
         subject = task.get("subject") or "General"
@@ -192,6 +201,7 @@ def build_subject_scores(tasks: list[dict], events: list[dict]) -> list[dict]:
         entry["task_count"] += 1
         entry["xp"] += int(task.get("xp_reward") or 0)
         entry["score"] += int(task.get("xp_reward") or 0) + int(task.get("priority") or 0) * 4
+        entry["score"] += context_subject_bonus(subject, user_context)
     for event in events:
         subject = event.get("subject") or infer_calendar_subject(event.get("title", ""), event.get("description", ""))
         entry = scores[subject]
@@ -199,6 +209,7 @@ def build_subject_scores(tasks: list[dict], events: list[dict]) -> list[dict]:
         entry["event_count"] += 1
         interpretation = event.get("interpretation", {})
         entry["score"] += int(interpretation.get("xp_reward") or 0)
+        entry["score"] += context_subject_bonus(subject, user_context)
     result = list(scores.values())
     result.sort(key=lambda item: item["score"], reverse=True)
     for item in result:
@@ -206,7 +217,7 @@ def build_subject_scores(tasks: list[dict], events: list[dict]) -> list[dict]:
     return result[:10]
 
 
-def build_recommendations(task_context: dict[str, Any], calendar_context: dict[str, Any], subject_scores: list[dict]) -> list[str]:
+def build_recommendations(task_context: dict[str, Any], calendar_context: dict[str, Any], subject_scores: list[dict], user_context: dict[str, Any]) -> list[str]:
     notes = []
     if task_context["overdue_tasks"]:
         notes.append(f"Clear the {len(task_context['overdue_tasks'])} overdue TickTick tasks first. They are the highest drag on the workflow.")
@@ -221,24 +232,28 @@ def build_recommendations(task_context: dict[str, Any], calendar_context: dict[s
     if subject_scores:
         top_subject = subject_scores[0]
         notes.append(f"Your strongest current workflow cluster is {top_subject['subject']}, which should get the first deep work block.")
+    if user_context["study_windows"]:
+        notes.append(f"Use your preferred study window: {', '.join(user_context['study_windows'][:2])}.")
+    if user_context["subject_focus"]:
+        notes.append(f"Bias the plan toward your stated subjects: {', '.join(user_context['subject_focus'][:3])}.")
     if not notes:
         notes.append("No strong workflow pressure detected. Keep using Pomodoro mode to steadily convert tasks into progress.")
     return notes[:8]
 
 
-def choose_best_mode(task_context: dict[str, Any], calendar_context: dict[str, Any]) -> dict[str, Any]:
+def choose_best_mode(task_context: dict[str, Any], calendar_context: dict[str, Any], user_context: dict[str, Any]) -> dict[str, Any]:
     open_tasks = len(task_context["open_tasks"])
     overdue = len(task_context["overdue_tasks"])
     today_tasks = len(task_context["due_today"])
     free_windows = sum(len(day["free_windows"]) for day in calendar_context["days"])
     exam_events = len(calendar_context["exam_events"])
     if exam_events > 0 or overdue > 2:
-        return {"name": "Boss prep", "reason": "Calendar exams or overdue tasks need concentrated prep.", "minutes": 50}
+        return {"name": "Boss prep", "reason": "Calendar exams or overdue tasks need concentrated prep.", "minutes": preferred_focus_minutes(user_context, 50)}
     if today_tasks > 0 and free_windows > 0:
-        return {"name": "Pomodoro", "reason": "There are tasks due now and the calendar has usable focus windows.", "minutes": 25}
+        return {"name": "Pomodoro", "reason": "There are tasks due now and the calendar has usable focus windows.", "minutes": preferred_focus_minutes(user_context, 25)}
     if open_tasks > 8:
-        return {"name": "Task sorting", "reason": "The queue is large enough that the app should keep the work pipeline broken into short sessions.", "minutes": 25}
-    return {"name": "Deep work", "reason": "The week looks open enough for longer uninterrupted sessions.", "minutes": 50}
+        return {"name": "Task sorting", "reason": "The queue is large enough that the app should keep the work pipeline broken into short sessions.", "minutes": preferred_focus_minutes(user_context, 25)}
+    return {"name": "Deep work", "reason": "The week looks open enough for longer uninterrupted sessions.", "minutes": preferred_focus_minutes(user_context, 50)}
 
 
 def pick_tasks_for_day(tasks: list[dict], current_day: date, free_minutes: int) -> list[dict]:
@@ -283,6 +298,54 @@ def choose_feature_for_day(tasks: list[dict], free_minutes: int, exam_events: li
             return "Pomodoro board"
         return "Daily quests"
     return "Calendar view"
+
+
+def context_subject_bonus(subject: str | None, user_context: dict[str, Any]) -> int:
+    if not subject:
+        return 0
+    lowered = subject.lower()
+    bonus = 0
+    for focus in user_context["subject_focus"]:
+        if focus.lower() in lowered:
+            bonus += 18
+    for preferred_window in user_context["study_windows"]:
+        if preferred_window.lower() in lowered:
+            bonus += 2
+    return bonus
+
+
+def preferred_focus_minutes(user_context: dict[str, Any], fallback: int = 25) -> int:
+    value = user_context.get("timer_preference")
+    try:
+        if value:
+            return max(10, min(90, int(str(value).strip())))
+    except Exception:
+        pass
+    return fallback
+
+
+def prioritize_windows(windows: list[dict], user_context: dict[str, Any]) -> list[dict]:
+    if not windows:
+        return windows
+    preferred = [window for window in windows if window_matches_context(window, user_context)]
+    other = [window for window in windows if window not in preferred]
+    return preferred + other
+
+
+def window_matches_context(window: dict, user_context: dict[str, Any]) -> bool:
+    start = parse_iso(window.get("start"))
+    if not start:
+        return False
+    hour = start.hour
+    if "night" in user_context["study_windows"] and hour >= 19:
+        return True
+    if "evening" in user_context["study_windows"] and 17 <= hour < 22:
+        return True
+    if "morning" in user_context["study_windows"] and 5 <= hour < 12:
+        return True
+    if "afternoon" in user_context["study_windows"] and 12 <= hour < 17:
+        return True
+    return False
 
 
 def derive_free_windows(events: list[dict], current_day: date) -> list[dict]:

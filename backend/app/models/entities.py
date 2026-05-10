@@ -56,6 +56,28 @@ class StudySession(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class AssistantMessage(Base):
+    __tablename__ = "assistant_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    role: Mapped[str] = mapped_column(String(20))
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class AssistantMemory(Base):
+    __tablename__ = "assistant_memories"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    category: Mapped[str] = mapped_column(String(40), default="note")
+    key: Mapped[str] = mapped_column(String(80))
+    value: Mapped[str] = mapped_column(Text)
+    weight: Mapped[int] = mapped_column(Integer, default=1)
+    source_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class PomodoroSettings(Base):
     __tablename__ = "pomodoro_settings"
 

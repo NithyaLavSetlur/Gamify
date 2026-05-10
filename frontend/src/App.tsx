@@ -31,11 +31,13 @@ import {
   Target,
   Trophy,
   Wand2,
+  MessageCircle,
+  Send,
   X,
   Zap
 } from "lucide-react";
 import { api, apiBaseUrl } from "./lib/api";
-import type { BossFight, CalendarEvent, DashboardState, DeploymentConfig, IntegrationCalendarEvent, IntegrationIntelligence, IntegrationTask, PomodoroBoard, PomodoroTask, Quest, StudySession } from "./types";
+import type { AssistantMessage, AssistantState, BossFight, CalendarEvent, DashboardState, DeploymentConfig, IntegrationCalendarEvent, IntegrationIntelligence, IntegrationTask, PomodoroBoard, PomodoroTask, Quest, StudySession } from "./types";
 import { Button, Field, Panel, Progress, Select, TextArea } from "./components/ui";
 
 type Page = "dashboard" | "integrations" | "quests" | "timer" | "bosses" | "calendar" | "ticktick" | "stats" | "settings";
@@ -131,6 +133,7 @@ export default function App() {
     <div className="min-h-screen overflow-x-hidden text-slate-100">
       <AmbientBackdrop />
       <RewardBurst seed={rewardBurst} />
+      <AssistantBubble />
       <AnimatePresence>
         {levelFlash && (
           <motion.div
@@ -381,7 +384,11 @@ function IntegrationDataHub({ refresh, completeWithReward }: { refresh: () => Pr
     void load();
     const handler = () => void load();
     window.addEventListener("ticktick-updated", handler);
-    return () => window.removeEventListener("ticktick-updated", handler);
+    window.addEventListener("workflow-context-updated", handler);
+    return () => {
+      window.removeEventListener("ticktick-updated", handler);
+      window.removeEventListener("workflow-context-updated", handler);
+    };
   }, []);
   const sync = async () => {
     setSyncing(true);
@@ -1927,6 +1934,152 @@ function RewardBurst({ seed }: { seed: number }) {
           }}
         />
       ))}
+    </div>
+  );
+}
+
+function AssistantBubble() {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [state, setState] = useState<AssistantState | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      setState(await api.assistantState());
+    } catch {
+      setState(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+    const handler = () => void load();
+    window.addEventListener("workflow-context-updated", handler);
+    return () => window.removeEventListener("workflow-context-updated", handler);
+  }, []);
+
+  const send = async (message: string) => {
+    const trimmed = message.trim();
+    if (!trimmed || sending) return;
+    setSending(true);
+    try {
+      const response = await api.sendAssistantMessage({ message: trimmed });
+      setState((previous) => {
+        const userMessage: AssistantMessage = {
+          id: Date.now(),
+          role: "user",
+          content: trimmed,
+          created_at: new Date().toISOString()
+        };
+        const addedMemories = response.memories_added.map((memory, index) => ({
+          id: Date.now() + index + 1,
+          category: memory.category,
+          key: memory.key,
+          value: memory.value,
+          weight: memory.weight,
+          created_at: new Date().toISOString()
+        }));
+        const nextMessages = previous ? [...previous.messages, userMessage, response.message] : [userMessage, response.message];
+        return {
+          messages: nextMessages,
+          memories: previous ? [...previous.memories, ...addedMemories] : addedMemories,
+          summary: response.summary
+        };
+      });
+      setDraft("");
+      window.dispatchEvent(new Event("workflow-context-updated"));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const quickSend = (value: string) => void send(value);
+
+  return (
+    <div className="fixed bottom-4 right-4 z-[60]">
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 12, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.97 }}
+            className="mb-3 w-[min(92vw,22rem)] overflow-hidden rounded-lg border border-white/10 bg-midnight/96 shadow-glow backdrop-blur-xl"
+          >
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-jade">Context Assistant</p>
+                <h3 className="text-sm font-black text-white">Tell me what matters</h3>
+              </div>
+              <button onClick={() => setOpen(false)} className="rounded-md border border-white/10 bg-white/5 p-2 text-slate-300 transition hover:bg-white/10">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="space-y-3 px-4 py-3">
+              <div className="rounded-lg border border-white/10 bg-ink/55 p-3 text-xs text-slate-400">
+                <p className="font-bold text-white">{loading ? "Loading memory..." : `${state?.summary.total_memories ?? 0} context notes saved`}</p>
+                <p className="mt-1">I use this to adapt task analysis, study timing, and the workflow plan.</p>
+                {state?.summary.subject_focus?.length ? <p className="mt-2 text-jade">Focus subjects: {state.summary.subject_focus.slice(0, 3).join(", ")}</p> : null}
+                {state?.summary.study_windows?.length ? <p className="mt-1 text-gold">Preferred windows: {state.summary.study_windows.slice(0, 3).join(", ")}</p> : null}
+              </div>
+              <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                {state?.messages.length ? state.messages.map((message) => (
+                  <div
+                    key={`${message.role}-${message.id}`}
+                    className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                      message.role === "assistant" ? "bg-jade/10 text-slate-100" : "ml-auto bg-white/10 text-white"
+                    }`}
+                  >
+                    {message.content}
+                  </div>
+                )) : (
+                  <p className="rounded-lg border border-dashed border-white/10 bg-white/5 p-3 text-sm text-slate-400">Share study preferences, deadlines, or constraints and I’ll remember them.</p>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => quickSend("I study best at night and want my tasks grouped by due date.")} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300 transition hover:bg-white/10">Night focus</button>
+                <button onClick={() => quickSend("My strongest subject is math and I want harder tasks prioritised there.")} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300 transition hover:bg-white/10">Math priority</button>
+                <button onClick={() => quickSend("Use 50 minute focus blocks for deep work.")} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300 transition hover:bg-white/10">50 min blocks</button>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void send(draft);
+                    }
+                  }}
+                  placeholder="Tell the assistant something..."
+                  className="min-h-11 flex-1 rounded-md border border-white/10 bg-ink/80 px-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-jade focus:shadow-glow"
+                />
+                <Button onClick={() => void send(draft)} disabled={sending} className="shrink-0">
+                  <Send size={16} />
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <motion.button
+        whileHover={{ scale: 1.03 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => setOpen((value) => !value)}
+        className="flex items-center gap-3 rounded-full border border-white/10 bg-midnight/95 px-4 py-3 text-left shadow-glow backdrop-blur-xl transition hover:border-jade/30 hover:bg-panel"
+      >
+        <span className="grid h-10 w-10 place-items-center rounded-full bg-jade text-ink">
+          <MessageCircle size={18} />
+        </span>
+        <span>
+          <span className="block text-sm font-black text-white">Context AI</span>
+          <span className="text-xs text-slate-400">{state?.summary.total_memories ? `${state.summary.total_memories} saved notes` : "Keep me updated"}</span>
+        </span>
+      </motion.button>
     </div>
   );
 }

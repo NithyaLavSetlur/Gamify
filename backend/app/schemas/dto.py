@@ -64,6 +64,36 @@ class StudySessionOut(BaseModel):
     created_at: datetime
 
 
+class AssistantMessageCreate(BaseModel):
+    message: str
+
+
+class AssistantMessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    role: str
+    content: str
+    created_at: datetime
+
+
+class AssistantMemoryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    category: str
+    key: str
+    value: str
+    weight: int
+    created_at: datetime
+
+
+class AssistantStateOut(BaseModel):
+    messages: list[AssistantMessageOut]
+    memories: list[AssistantMemoryOut]
+    summary: dict
+
+
 class PomodoroSettingsOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

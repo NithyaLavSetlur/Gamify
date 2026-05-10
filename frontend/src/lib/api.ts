@@ -1,4 +1,4 @@
-import type { DashboardState, DeploymentConfig, IntegrationIntelligence } from "../types";
+import type { AssistantReply, AssistantState, DashboardState, DeploymentConfig, IntegrationIntelligence } from "../types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api";
 export const apiBaseUrl = API_BASE;
@@ -23,6 +23,9 @@ export const api = {
   deploymentConfig: () => request<DeploymentConfig>("/deployment-config"),
   health: () => request<Record<string, unknown>>("/health"),
   integrationIntelligence: () => request<IntegrationIntelligence>("/integrations/intelligence"),
+  assistantState: () => request<AssistantState>("/assistant"),
+  sendAssistantMessage: (payload: Record<string, unknown>) =>
+    request<AssistantReply>("/assistant/message", { method: "POST", body: JSON.stringify(payload) }),
   createQuest: (payload: Record<string, unknown>) =>
     request("/quests", { method: "POST", body: JSON.stringify(payload) }),
   completeQuest: (id: number) => request(`/quests/${id}/complete`, { method: "POST" }),

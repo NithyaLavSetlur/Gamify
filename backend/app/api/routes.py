@@ -10,6 +10,10 @@ from app.core.config import Settings, get_settings
 from app.db.session import engine, get_db
 from app.models.entities import Achievement, BossFight, CalendarEvent, Mastery, PomodoroTask, Quest, StudySession
 from app.schemas.dto import (
+    AssistantMessageCreate,
+    AssistantMessageOut,
+    AssistantMemoryOut,
+    AssistantStateOut,
     BossFightCreate,
     BossFightOut,
     CalendarEventCreate,
@@ -26,6 +30,7 @@ from app.schemas.dto import (
     StudySessionCreate,
     StudySessionOut,
 )
+from app.services.assistant_ai import load_assistant_state, process_message
 from app.services.gamification import (
     award_xp,
     get_or_create_profile,
@@ -191,6 +196,28 @@ def health(settings: Settings = Depends(get_settings), db: Session = Depends(get
 @router.get("/pomodoro", response_model=PomodoroBoardOut)
 def get_pomodoro_board(db: Session = Depends(get_db)) -> PomodoroBoardOut:
     return PomodoroBoardOut.model_validate(pomodoro_board(db))
+
+
+@router.get("/assistant", response_model=AssistantStateOut)
+def get_assistant_state(db: Session = Depends(get_db)) -> AssistantStateOut:
+    state = load_assistant_state(db)
+    return AssistantStateOut(
+        messages=[AssistantMessageOut.model_validate(row) for row in state["messages"]],
+        memories=[AssistantMemoryOut.model_validate(row) for row in state["memories"]],
+        summary=state["summary"],
+    )
+
+
+@router.post("/assistant/message")
+def send_assistant_message(payload: AssistantMessageCreate, db: Session = Depends(get_db)) -> dict:
+    result = process_message(db, payload.message)
+    return {
+        "message": AssistantMessageOut.model_validate(result["message"]),
+        "needs_follow_up": result["needs_follow_up"],
+        "follow_up_question": result["follow_up_question"],
+        "memories_added": result["memories_added"],
+        "summary": result["summary"],
+    }
 
 
 @router.patch("/pomodoro/settings")

@@ -310,3 +310,44 @@ export type IntegrationQuest = {
   external_source: string | null;
   description: string;
 };
+
+export type AssistantMessage = {
+  id: number;
+  role: "user" | "assistant" | string;
+  content: string;
+  created_at: string;
+};
+
+export type AssistantMemory = {
+  id: number;
+  category: string;
+  key: string;
+  value: string;
+  weight: number;
+  created_at: string;
+};
+
+export type AssistantState = {
+  messages: AssistantMessage[];
+  memories: AssistantMemory[];
+  summary: {
+    total_memories: number;
+    study_windows: string[];
+    subject_focus: string[];
+    timer_preference: string | null;
+    preferences: string[];
+  };
+};
+
+export type AssistantReply = {
+  message: AssistantMessage;
+  needs_follow_up: boolean;
+  follow_up_question: string | null;
+  memories_added: Array<{
+    category: string;
+    key: string;
+    value: string;
+    weight: number;
+  }>;
+  summary: AssistantState["summary"];
+};
