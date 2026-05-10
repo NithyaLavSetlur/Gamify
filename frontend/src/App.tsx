@@ -157,6 +157,50 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      <header className="sticky top-0 z-30 hidden border-b border-slate-200/80 bg-white/85 backdrop-blur-xl md:block">
+        <div className="mx-auto max-w-7xl px-4 py-3 md:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-violet-600 text-white shadow-[0_10px_24px_rgba(109,87,230,0.16)]">
+                <Shield size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Study workspace</p>
+                <h1 className="truncate text-base font-black text-slate-900">{state.profile.display_name}</h1>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge tone="boss">Level {state.profile.level}</Badge>
+              <Badge tone="easy">{state.profile.rank_title}</Badge>
+            </div>
+          </div>
+          <nav className="mt-3 overflow-x-auto pb-1">
+            <div className="flex min-w-max gap-2">
+              {nav.map((item) => {
+                const Icon = item.icon;
+                const active = page === item.key;
+                return (
+                  <motion.button
+                    key={item.key}
+                    whileHover={{ y: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setPage(item.key)}
+                    className={`flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold transition ${
+                      active
+                        ? "border-violet-300 bg-violet-600 text-white shadow-[0_10px_24px_rgba(109,87,230,0.16)]"
+                        : "border-slate-200 bg-white/80 text-slate-600 hover:border-violet-200 hover:bg-violet-50 hover:text-slate-900"
+                    }`}
+                  >
+                    <Icon size={15} />
+                    <span>{item.label}</span>
+                  </motion.button>
+                );
+              })}
+            </div>
+          </nav>
+        </div>
+      </header>
+
       <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-white/10 bg-midnight/90 p-4 backdrop-blur-xl lg:block">
         <div className="mb-6 rounded-lg border border-jade/20 bg-jade/8 p-4">
           <div className="flex items-center gap-3">

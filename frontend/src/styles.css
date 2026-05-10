@@ -3,11 +3,11 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
-  background: #18131f;
+  background: #f6f2ea;
 }
 
 body {
@@ -15,14 +15,14 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(196, 181, 253, 0.18), transparent 30rem),
-    radial-gradient(circle at 80% 20%, rgba(240, 212, 138, 0.08), transparent 24rem),
-    linear-gradient(135deg, rgba(167, 139, 250, 0.12), transparent 42rem),
-    #18131f;
+    radial-gradient(circle at top left, rgba(139, 124, 246, 0.14), transparent 26rem),
+    radial-gradient(circle at 80% 20%, rgba(217, 201, 255, 0.18), transparent 24rem),
+    linear-gradient(180deg, #f8f4ed 0%, #f4efe6 100%);
+  color: #1e1a29;
 }
 
 body::selection {
-  background: rgba(196, 181, 253, 0.32);
+  background: rgba(139, 124, 246, 0.22);
 }
 
 button,
@@ -140,4 +140,109 @@ textarea {
 
 .reward-piece {
   animation: reward-fall 1.8s ease-in forwards;
+}
+
+.claude-shell {
+  color: #1e1a29;
+}
+
+.claude-shell .text-white,
+.claude-shell .text-slate-100 {
+  color: #211a2f !important;
+}
+
+.claude-shell .text-slate-200 {
+  color: #322a40 !important;
+}
+
+.claude-shell .text-slate-300 {
+  color: #625975 !important;
+}
+
+.claude-shell .text-slate-400 {
+  color: #7f768f !important;
+}
+
+.claude-shell .text-slate-500 {
+  color: #9f95ac !important;
+}
+
+.claude-shell [class*="bg-midnight"] {
+  background-color: rgba(255, 255, 255, 0.84) !important;
+}
+
+.claude-shell [class*="bg-panel"] {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.claude-shell [class*="bg-ink"] {
+  background-color: rgba(250, 247, 240, 0.94) !important;
+}
+
+.claude-shell [class*="border-white"] {
+  border-color: rgba(125, 112, 165, 0.16) !important;
+}
+
+.claude-shell [class*="shadow-glow"] {
+  box-shadow: 0 18px 50px rgba(109, 87, 230, 0.12) !important;
+}
+
+.claude-shell [class*="shadow-goldglow"] {
+  box-shadow: 0 0 34px rgba(188, 165, 255, 0.16) !important;
+}
+
+.claude-shell [class*="shadow-emberglow"] {
+  box-shadow: 0 0 28px rgba(168, 141, 255, 0.14) !important;
+}
+
+.claude-shell .bg-jade {
+  background-color: #8b7cf6 !important;
+}
+
+.claude-shell .bg-gold {
+  background-color: #d9c9ff !important;
+}
+
+.claude-shell .bg-ember {
+  background-color: #bcaaff !important;
+}
+
+.claude-shell .bg-rune {
+  background-color: #6957e6 !important;
+}
+
+.claude-shell .text-jade {
+  color: #6957e6 !important;
+}
+
+.claude-shell .text-gold {
+  color: #8f7cf7 !important;
+}
+
+.claude-shell .text-ember {
+  color: #9b7bdc !important;
+}
+
+.claude-shell .text-rune {
+  color: #6957e6 !important;
+}
+
+.claude-shell .border-jade\/20,
+.claude-shell .border-jade\/25,
+.claude-shell .border-jade\/30,
+.claude-shell .border-rune\/30,
+.claude-shell .border-rune\/35,
+.claude-shell .border-rune\/40,
+.claude-shell .border-gold\/30,
+.claude-shell .border-ember\/25,
+.claude-shell .border-ember\/30 {
+  border-color: rgba(125, 112, 165, 0.2) !important;
+}
+
+.claude-shell aside.fixed {
+  display: none !important;
+}
+
+.claude-shell main.lg\:pl-72 {
+  padding-left: 0 !important;
 }
