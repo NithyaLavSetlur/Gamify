@@ -2629,10 +2629,19 @@ function AssistantBubbleV2() {
   }, []);
 
   useEffect(() => {
-    if (open && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [open, state?.messages.length]);
+    if (!open) return;
+    const scrollToLatest = () => {
+      const el = scrollRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    };
+    scrollToLatest();
+    const frame = window.requestAnimationFrame(scrollToLatest);
+    const timeout = window.setTimeout(scrollToLatest, 120);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, [open, state?.messages.length, loading, sending]);
 
   useEffect(() => {
     const el = draftRef.current;
