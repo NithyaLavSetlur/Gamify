@@ -64,6 +64,65 @@ class StudySessionOut(BaseModel):
     created_at: datetime
 
 
+class PomodoroSettingsOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    work_minutes: int
+    short_break_minutes: int
+    long_break_minutes: int
+    sessions_before_long_break: int
+    auto_start_breaks: bool
+    auto_start_pomodoros: bool
+    sound_enabled: bool
+    active_task_id: int | None
+
+
+class PomodoroSettingsUpdate(BaseModel):
+    work_minutes: int | None = None
+    short_break_minutes: int | None = None
+    long_break_minutes: int | None = None
+    sessions_before_long_break: int | None = None
+    auto_start_breaks: bool | None = None
+    auto_start_pomodoros: bool | None = None
+    sound_enabled: bool | None = None
+    active_task_id: int | None = None
+
+
+class PomodoroTaskCreate(BaseModel):
+    title: str
+    subject: str = "General"
+    estimated_pomodoros: int = 1
+
+
+class PomodoroTaskUpdate(BaseModel):
+    title: str | None = None
+    subject: str | None = None
+    estimated_pomodoros: int | None = None
+    completed_pomodoros: int | None = None
+    completed: bool | None = None
+    sort_order: int | None = None
+
+
+class PomodoroTaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    subject: str
+    estimated_pomodoros: int
+    completed_pomodoros: int
+    completed: bool
+    sort_order: int
+    remaining_pomodoros: int
+
+
+class PomodoroBoardOut(BaseModel):
+    settings: PomodoroSettingsOut
+    tasks: list[PomodoroTaskOut]
+    stats: dict
+
+
 class BossFightCreate(BaseModel):
     subject: str
     title: str
@@ -113,6 +172,7 @@ class DashboardOut(BaseModel):
     profile: ProfileOut
     quests: list[QuestOut]
     sessions: list[StudySessionOut]
+    pomodoro: PomodoroBoardOut
     bosses: list[BossFightOut]
     events: list[CalendarEventOut]
     achievements: list[dict]

@@ -7,6 +7,7 @@ import {
   Brain,
   CalendarDays,
   Check,
+  CheckCircle2,
   ChevronRight,
   Flame,
   Gauge,
@@ -18,20 +19,23 @@ import {
   Lock,
   Play,
   Plus,
+  Pause,
   RefreshCcw,
   Settings,
   Shield,
   Snowflake,
   Sparkles,
   Swords,
+  Target as TargetIcon,
   TimerReset,
   Target,
   Trophy,
   Wand2,
+  X,
   Zap
 } from "lucide-react";
 import { api, apiBaseUrl } from "./lib/api";
-import type { BossFight, CalendarEvent, DashboardState, DeploymentConfig, IntegrationCalendarEvent, IntegrationIntelligence, IntegrationTask, Quest, StudySession } from "./types";
+import type { BossFight, CalendarEvent, DashboardState, DeploymentConfig, IntegrationCalendarEvent, IntegrationIntelligence, IntegrationTask, PomodoroBoard, PomodoroTask, Quest, StudySession } from "./types";
 import { Button, Field, Panel, Progress, Select, TextArea } from "./components/ui";
 
 type Page = "dashboard" | "integrations" | "quests" | "timer" | "bosses" | "calendar" | "ticktick" | "stats" | "settings";
@@ -191,7 +195,7 @@ export default function App() {
               {page === "dashboard" && <Dashboard state={state} refresh={refresh} completeWithReward={completeWithReward} wording={wording} />}
               {page === "integrations" && <IntegrationDataHub refresh={refresh} completeWithReward={completeWithReward} />}
               {page === "quests" && <Quests state={state} refresh={refresh} completeWithReward={completeWithReward} />}
-              {page === "timer" && <StudyTimer refresh={refresh} triggerReward={() => setRewardBurst(Date.now())} />}
+              {page === "timer" && <StudyTimer state={state} refresh={refresh} triggerReward={() => setRewardBurst(Date.now())} />}
               {page === "bosses" && <Bosses state={state} refresh={refresh} completeWithReward={completeWithReward} />}
               {page === "calendar" && <CalendarView state={state} refresh={refresh} />}
               {page === "ticktick" && <TickTick state={state} refresh={refresh} completeWithReward={completeWithReward} />}
@@ -795,7 +799,60 @@ function Quests({ state, refresh, completeWithReward }: { state: DashboardState;
   );
 }
 
-function StudyTimer({ refresh, triggerReward }: { refresh: () => Promise<void>; triggerReward: () => void }) {
+type TimerView = "pomodoro" | "rpg";
+type PomodoroPhase = "pomodoro" | "short_break" | "long_break";
+
+function StudyTimer({ state, refresh, triggerReward }: { state: DashboardState; refresh: () => Promise<void>; triggerReward: () => void }) {
+  const [view, setView] = useState<TimerView>(() => {
+    try {
+      return (window.localStorage.getItem("gamify-timer-view") as TimerView) || "pomodoro";
+    } catch {
+      return "pomodoro";
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("gamify-timer-view", view);
+    } catch {
+      // Ignore storage failures in private browsing or restricted environments.
+    }
+  }, [view]);
+
+  return (
+    <div className="space-y-4">
+      <Panel className="mx-auto max-w-4xl">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <PanelHeader title="Study Timer" />
+          <div className="inline-flex rounded-lg border border-white/10 bg-ink/60 p-1 text-sm">
+            <button
+              className={`rounded-md px-3 py-2 transition ${view === "pomodoro" ? "bg-jade text-ink" : "text-slate-300 hover:bg-white/5"}`}
+              onClick={() => setView("pomodoro")}
+            >
+              Pomodoro
+            </button>
+            <button
+              className={`rounded-md px-3 py-2 transition ${view === "rpg" ? "bg-jade text-ink" : "text-slate-300 hover:bg-white/5"}`}
+              onClick={() => setView("rpg")}
+            >
+              RPG Timer
+            </button>
+          </div>
+        </div>
+        <p className="text-sm text-slate-400">
+          Pomodoro mode mirrors the familiar work / short break / long break flow and keeps task estimates, settings, and progress in the app database.
+        </p>
+      </Panel>
+      {view === "pomodoro" ? (
+        <PomodoroTimer state={state} refresh={refresh} triggerReward={triggerReward} />
+      ) : (
+        <RpgTimer refresh={refresh} triggerReward={triggerReward} />
+      )}
+    </div>
+  );
+}
+
+function RpgTimer({ refresh, triggerReward }: { refresh: () => Promise<void>; triggerReward: () => void }) {
   const [seconds, setSeconds] = useState(25 * 60);
   const [running, setRunning] = useState(false);
   const [subject, setSubject] = useState("General");
@@ -846,6 +903,411 @@ function StudyTimer({ refresh, triggerReward }: { refresh: () => Promise<void>; 
       </div>
     </Panel>
   );
+}
+
+function PomodoroTimer({ state, refresh, triggerReward }: { state: DashboardState; refresh: () => Promise<void>; triggerReward: () => void }) {
+  const board = state.pomodoro;
+  const settings = board.settings;
+  const [phase, setPhase] = useState<PomodoroPhase>("pomodoro");
+  const [seconds, setSeconds] = useState(settings.work_minutes * 60);
+  const [running, setRunning] = useState(false);
+  const [cycleCount, setCycleCount] = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsDraft, setSettingsDraft] = useState(settings);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskSubject, setTaskSubject] = useState("General");
+  const [taskEstimate, setTaskEstimate] = useState(1);
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const currentTask = board.tasks.find((task) => task.id === board.stats.active_task_id) ?? null;
+  const phaseMinutes = durationForPhase(phase, settings);
+  const phaseLabelText = phaseLabel(phase);
+
+  useEffect(() => {
+    if (!running) setSeconds(phaseMinutes * 60);
+  }, [phaseMinutes, running]);
+
+  useEffect(() => {
+    if (showSettings) setSettingsDraft(settings);
+  }, [showSettings, settings]);
+
+  useEffect(() => {
+    if (!running) return;
+    const id = window.setInterval(() => setSeconds((value) => Math.max(0, value - 1)), 1000);
+    return () => window.clearInterval(id);
+  }, [running]);
+
+  useEffect(() => {
+    if (seconds !== 0 || !running) return;
+    void finishPhase();
+  }, [seconds, running, phase, cycleCount, settings.auto_start_breaks, settings.auto_start_pomodoros, settings.sessions_before_long_break, settings.sound_enabled, settings.work_minutes, settings.short_break_minutes, settings.long_break_minutes, currentTask]);
+
+  const finishPhase = async () => {
+    setRunning(false);
+    ping(settings.sound_enabled);
+    if (phase === "pomodoro") {
+      triggerReward();
+      await api.createSession({
+        subject: currentTask?.subject ?? "General",
+        mode: "pomodoro",
+        minutes: settings.work_minutes
+      });
+      if (currentTask) {
+        await api.advancePomodoroTask(currentTask.id, { amount: 1 });
+      }
+      const nextCycle = cycleCount + 1;
+      setCycleCount(nextCycle);
+      const nextPhase: PomodoroPhase = nextCycle % settings.sessions_before_long_break === 0 ? "long_break" : "short_break";
+      setPhase(nextPhase);
+      setSeconds(durationForPhase(nextPhase, settings) * 60);
+      if (settings.auto_start_breaks) setRunning(true);
+      await refresh();
+      return;
+    }
+    setPhase("pomodoro");
+    setSeconds(settings.work_minutes * 60);
+    if (settings.auto_start_pomodoros) setRunning(true);
+    await refresh();
+  };
+
+  const startPause = () => {
+    if (!running && seconds === 0) setSeconds(durationForPhase(phase, settings) * 60);
+    setRunning((value) => !value);
+  };
+
+  const reset = () => {
+    setSeconds(durationForPhase(phase, settings) * 60);
+    setRunning(false);
+  };
+
+  const switchPhase = (next: PomodoroPhase) => {
+    setPhase(next);
+    setSeconds(durationForPhase(next, settings) * 60);
+    setRunning(false);
+  };
+
+  const saveSettings = async (payload: Record<string, unknown>) => {
+    await api.pomodoroSettings(payload);
+    setShowSettings(false);
+    await refresh();
+    setSeconds(durationForPhase(phase, settingsDraft) * 60);
+  };
+
+  const saveDraftSettings = async () => {
+    await saveSettings({
+      work_minutes: settingsDraft.work_minutes,
+      short_break_minutes: settingsDraft.short_break_minutes,
+      long_break_minutes: settingsDraft.long_break_minutes,
+      sessions_before_long_break: settingsDraft.sessions_before_long_break,
+      auto_start_breaks: settingsDraft.auto_start_breaks,
+      auto_start_pomodoros: settingsDraft.auto_start_pomodoros,
+      sound_enabled: settingsDraft.sound_enabled
+    });
+  };
+
+  const addTask = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!taskTitle.trim()) return;
+    await api.createPomodoroTask({ title: taskTitle, subject: taskSubject, estimated_pomodoros: taskEstimate });
+    setTaskTitle("");
+    setTaskSubject("General");
+    setTaskEstimate(1);
+    await refresh();
+  };
+
+  const completeTask = async (task: PomodoroTask) => {
+    await api.updatePomodoroTask(task.id, { completed: true, completed_pomodoros: task.estimated_pomodoros });
+    await refresh();
+  };
+
+  const editTask = async (task: PomodoroTask, payload: Record<string, unknown>) => {
+    await api.updatePomodoroTask(task.id, payload);
+    setEditingTaskId(null);
+    await refresh();
+  };
+
+  const estimateText = formatDuration(board.stats.estimated_finish_minutes);
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1.05fr_.95fr]">
+      <Panel className="relative overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-jade via-gold to-rune" />
+        <PanelHeader title="Pomodoro Board" action={<Badge tone={phase === "pomodoro" ? "easy" : "boss"}>{phaseLabelText}</Badge>} />
+        <div className="grid gap-5">
+          <div className="mx-auto grid h-72 w-72 place-items-center rounded-full border border-white/10 bg-gradient-to-br from-panel via-midnight to-ink shadow-glow">
+            <div className="text-center">
+              <Hourglass className="mx-auto mb-3 text-jade" size={28} />
+              <div className="text-7xl font-black tabular-nums text-white">{formatTime(seconds)}</div>
+              <p className="mt-2 text-sm uppercase tracking-[0.16em] text-slate-400">{phaseLabelText}</p>
+            </div>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-3">
+            <QuickStat label="Work today" value={board.stats.work_sessions_today.toString()} />
+            <QuickStat label="Left" value={board.stats.remaining_pomodoros.toString()} />
+            <QuickStat label="ETA" value={estimateText} />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-[1.35fr_.65fr]">
+            <div className="rounded-lg border border-white/10 bg-ink/60 p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Current focus</p>
+              <h3 className="mt-2 text-lg font-black text-white">{currentTask?.title ?? "No task selected"}</h3>
+              <p className="mt-1 text-sm text-slate-400">
+                {currentTask ? `${currentTask.subject} · ${currentTask.remaining_pomodoros} pomodoros remaining` : "Pick a task to connect work blocks to the queue."}
+              </p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-ink/60 p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Cycle</p>
+              <div className="mt-2 flex items-end justify-between">
+                <p className="text-3xl font-black text-white">{cycleCount + 1}</p>
+                <p className="text-xs text-slate-400">Long break every {settings.sessions_before_long_break}</p>
+              </div>
+            </div>
+          </div>
+
+          <Progress value={seconds === 0 ? 0 : phaseMinutes * 60 - seconds} max={phaseMinutes * 60} tone={phase === "pomodoro" ? "jade" : phase === "short_break" ? "gold" : "rune"} />
+
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button onClick={startPause}>{running ? <Pause size={16} /> : <Play size={16} />} {running ? "Pause" : "Start"}</Button>
+            <Button variant="ghost" onClick={reset}>
+              <RefreshCcw size={16} /> Reset
+            </Button>
+            <Button variant="ghost" onClick={() => switchPhase("pomodoro")}>
+              Pomodoro
+            </Button>
+            <Button variant="ghost" onClick={() => switchPhase("short_break")}>
+              Short break
+            </Button>
+            <Button variant="ghost" onClick={() => switchPhase("long_break")}>
+              Long break
+            </Button>
+          </div>
+        </div>
+      </Panel>
+
+      <div className="space-y-4">
+        <Panel>
+          <div className="flex items-center justify-between gap-3">
+            <PanelHeader title="Task Queue" />
+            <Button variant="ghost" onClick={() => setShowSettings(true)}>
+              <Settings size={16} /> Settings
+            </Button>
+          </div>
+          <form className="grid gap-2 sm:grid-cols-[1.2fr_.7fr_.6fr_auto]" onSubmit={addTask}>
+            <Field value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Task title" />
+            <Field value={taskSubject} onChange={(e) => setTaskSubject(e.target.value)} placeholder="Subject" />
+            <Field type="number" min={1} value={taskEstimate} onChange={(e) => setTaskEstimate(Number(e.target.value))} />
+            <Button type="submit" className="sm:min-w-28">
+              <Plus size={16} /> Add
+            </Button>
+          </form>
+          <div className="mt-4 space-y-2">
+            {board.tasks.length === 0 && <EmptyState icon={<TargetIcon size={18} />} title="No tasks yet" body="Add a task and estimate how many pomodoros it needs." />}
+            {board.tasks.map((task) => (
+              <PomodoroTaskRow
+                key={task.id}
+                task={task}
+                active={task.id === board.stats.active_task_id}
+                editing={editingTaskId === task.id}
+                onActivate={async () => {
+                  await api.activatePomodoroTask(task.id);
+                  await refresh();
+                }}
+                onDelete={async () => {
+                  await api.deletePomodoroTask(task.id);
+                  await refresh();
+                }}
+                onComplete={async () => {
+                  await completeTask(task);
+                }}
+                onBeginEdit={() => setEditingTaskId(task.id)}
+                onCancelEdit={() => setEditingTaskId(null)}
+                onSave={editTask}
+              />
+            ))}
+          </div>
+        </Panel>
+
+        <Panel>
+          <PanelHeader title="Pomofocus Settings" action={<span className="text-xs text-slate-400">Stored in the database</span>} />
+          <div className="grid gap-3 text-sm">
+            <div className="grid grid-cols-2 gap-3">
+              <SettingPill label="Work" value={`${settings.work_minutes} min`} />
+              <SettingPill label="Short break" value={`${settings.short_break_minutes} min`} />
+              <SettingPill label="Long break" value={`${settings.long_break_minutes} min`} />
+              <SettingPill label="Long interval" value={`${settings.sessions_before_long_break} sessions`} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <TogglePill label="Auto start breaks" active={settings.auto_start_breaks} />
+              <TogglePill label="Auto start pomodoros" active={settings.auto_start_pomodoros} />
+              <TogglePill label="Sound alerts" active={settings.sound_enabled} />
+              <TogglePill label="Active task" active={Boolean(currentTask)} />
+            </div>
+          </div>
+        </Panel>
+      </div>
+
+      <AnimatePresence>
+        {showSettings && (
+          <motion.div className="fixed inset-0 z-40 grid place-items-center bg-black/70 px-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div initial={{ opacity: 0, scale: 0.96, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.98, y: 10 }} className="w-full max-w-xl rounded-lg border border-white/10 bg-midnight p-5 shadow-glow">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-xl font-black text-white">Pomodoro settings</h3>
+                <Button variant="ghost" onClick={() => setShowSettings(false)}>
+                  <X size={16} />
+                </Button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field type="number" min={1} value={settingsDraft.work_minutes} onChange={(e) => setSettingsDraft({ ...settingsDraft, work_minutes: Number(e.target.value) })} />
+                <Field type="number" min={1} value={settingsDraft.short_break_minutes} onChange={(e) => setSettingsDraft({ ...settingsDraft, short_break_minutes: Number(e.target.value) })} />
+                <Field type="number" min={1} value={settingsDraft.long_break_minutes} onChange={(e) => setSettingsDraft({ ...settingsDraft, long_break_minutes: Number(e.target.value) })} />
+                <Field type="number" min={1} value={settingsDraft.sessions_before_long_break} onChange={(e) => setSettingsDraft({ ...settingsDraft, sessions_before_long_break: Number(e.target.value) })} />
+              </div>
+              <p className="mt-3 text-xs text-slate-500">Use the quick controls below to save your preferred timer presets.</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <Button onClick={() => void saveDraftSettings()}>Save</Button>
+                <Button variant="ghost" onClick={() => setSettingsDraft({ ...settingsDraft, work_minutes: 25, short_break_minutes: 5, long_break_minutes: 15, sessions_before_long_break: 4 })}>Pomodoro classic</Button>
+                <Button variant="ghost" onClick={() => setSettingsDraft({ ...settingsDraft, work_minutes: 50, short_break_minutes: 10, long_break_minutes: 20, sessions_before_long_break: 4 })}>Deep work</Button>
+                <Button variant="ghost" onClick={() => setSettingsDraft({ ...settingsDraft, auto_start_breaks: !settingsDraft.auto_start_breaks })}>Auto start breaks {settingsDraft.auto_start_breaks ? "on" : "off"}</Button>
+                <Button variant="ghost" onClick={() => setSettingsDraft({ ...settingsDraft, auto_start_pomodoros: !settingsDraft.auto_start_pomodoros })}>Auto start pomodoros {settingsDraft.auto_start_pomodoros ? "on" : "off"}</Button>
+                <Button variant="ghost" onClick={() => setSettingsDraft({ ...settingsDraft, sound_enabled: !settingsDraft.sound_enabled })}>Sound {settingsDraft.sound_enabled ? "on" : "off"}</Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function PomodoroTaskRow({
+  task,
+  active,
+  editing,
+  onActivate,
+  onDelete,
+  onComplete,
+  onBeginEdit,
+  onCancelEdit,
+  onSave
+}: {
+  task: PomodoroTask;
+  active: boolean;
+  editing: boolean;
+  onActivate: () => Promise<void>;
+  onDelete: () => Promise<void>;
+  onComplete: () => Promise<void>;
+  onBeginEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (task: PomodoroTask, payload: Record<string, unknown>) => Promise<void>;
+}) {
+  const [title, setTitle] = useState(task.title);
+  const [subject, setSubject] = useState(task.subject);
+  const [estimate, setEstimate] = useState(task.estimated_pomodoros);
+
+  useEffect(() => {
+    setTitle(task.title);
+    setSubject(task.subject);
+    setEstimate(task.estimated_pomodoros);
+  }, [task.title, task.subject, task.estimated_pomodoros]);
+
+  if (editing) {
+    return (
+      <div className="rounded-lg border border-gold/25 bg-gold/8 p-3">
+        <div className="grid gap-2 sm:grid-cols-[1.2fr_.8fr_.5fr]">
+          <Field value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Task title" />
+          <Field value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" />
+          <Field type="number" min={1} value={estimate} onChange={(e) => setEstimate(Number(e.target.value))} />
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button onClick={() => void onSave(task, { title, subject, estimated_pomodoros: estimate })}>Save</Button>
+          <Button variant="ghost" onClick={onCancelEdit}>Cancel</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`rounded-lg border p-3 ${active ? "border-jade/40 bg-jade/10" : "border-white/10 bg-ink/50"}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className="truncate font-bold text-white">{task.title}</h4>
+            {active && <Badge tone="easy">Current</Badge>}
+          </div>
+          <p className="mt-1 text-sm text-slate-400">{task.subject} · {task.completed_pomodoros}/{task.estimated_pomodoros} pomodoros</p>
+          <Progress value={task.completed_pomodoros} max={Math.max(1, task.estimated_pomodoros)} tone={active ? "jade" : "gold"} />
+        </div>
+        <div className="flex shrink-0 flex-col gap-2">
+          <Button variant="ghost" onClick={() => void onActivate()}><TargetIcon size={14} /></Button>
+          <Button variant="ghost" onClick={onBeginEdit}><Settings size={14} /></Button>
+          <Button variant="ghost" onClick={() => void onComplete()}><CheckCircle2 size={14} /></Button>
+          <Button variant="ghost" onClick={() => void onDelete()}><X size={14} /></Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function QuickStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-ink/55 p-3 text-center">
+      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-1 text-lg font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function SettingPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-ink/55 p-3">
+      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-bold text-white">{value}</p>
+    </div>
+  );
+}
+
+function TogglePill({ label, active }: { label: string; active: boolean }) {
+  return (
+    <div className={`rounded-lg border p-3 ${active ? "border-jade/25 bg-jade/10" : "border-white/10 bg-ink/55"}`}>
+      <p className="text-sm font-bold text-white">{label}</p>
+      <p className="mt-1 text-xs text-slate-400">{active ? "Enabled" : "Disabled"}</p>
+    </div>
+  );
+}
+
+function durationForPhase(phase: PomodoroPhase, settings: PomodoroBoard["settings"]) {
+  if (phase === "short_break") return settings.short_break_minutes;
+  if (phase === "long_break") return settings.long_break_minutes;
+  return settings.work_minutes;
+}
+
+function phaseLabel(phase: PomodoroPhase) {
+  if (phase === "short_break") return "Short break";
+  if (phase === "long_break") return "Long break";
+  return "Pomodoro";
+}
+
+function formatDuration(totalMinutes: number) {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours <= 0) return `${minutes}m`;
+  return `${hours}h ${minutes}m`;
+}
+
+function ping(enabled: boolean) {
+  if (!enabled || typeof window === "undefined") return;
+  const AudioContext = window.AudioContext || (window as Window & { webkitAudioContext?: typeof window.AudioContext }).webkitAudioContext;
+  if (!AudioContext) return;
+  const context = new AudioContext();
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  oscillator.type = "sine";
+  oscillator.frequency.value = 784;
+  gain.gain.value = 0.06;
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start();
+  oscillator.stop(context.currentTime + 0.14);
 }
 
 function Bosses({ state, refresh, completeWithReward }: { state: DashboardState; refresh: () => Promise<void>; completeWithReward: (action: () => Promise<void>, major?: boolean) => Promise<void> }) {

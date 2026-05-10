@@ -56,6 +56,36 @@ class StudySession(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class PomodoroSettings(Base):
+    __tablename__ = "pomodoro_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    work_minutes: Mapped[int] = mapped_column(Integer, default=25)
+    short_break_minutes: Mapped[int] = mapped_column(Integer, default=5)
+    long_break_minutes: Mapped[int] = mapped_column(Integer, default=15)
+    sessions_before_long_break: Mapped[int] = mapped_column(Integer, default=4)
+    auto_start_breaks: Mapped[bool] = mapped_column(Boolean, default=False)
+    auto_start_pomodoros: Mapped[bool] = mapped_column(Boolean, default=False)
+    sound_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    active_task_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class PomodoroTask(Base):
+    __tablename__ = "pomodoro_tasks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(180))
+    subject: Mapped[str] = mapped_column(String(80), default="General")
+    estimated_pomodoros: Mapped[int] = mapped_column(Integer, default=1)
+    completed_pomodoros: Mapped[int] = mapped_column(Integer, default=0)
+    completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class BossFight(Base):
     __tablename__ = "boss_fights"
 

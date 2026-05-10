@@ -38,6 +38,41 @@ export type StudySession = {
   created_at: string;
 };
 
+export type PomodoroSettings = {
+  id: number;
+  work_minutes: number;
+  short_break_minutes: number;
+  long_break_minutes: number;
+  sessions_before_long_break: number;
+  auto_start_breaks: boolean;
+  auto_start_pomodoros: boolean;
+  sound_enabled: boolean;
+  active_task_id: number | null;
+};
+
+export type PomodoroTask = {
+  id: number;
+  title: string;
+  subject: string;
+  estimated_pomodoros: number;
+  completed_pomodoros: number;
+  completed: boolean;
+  sort_order: number;
+  remaining_pomodoros: number;
+};
+
+export type PomodoroBoard = {
+  settings: PomodoroSettings;
+  tasks: PomodoroTask[];
+  stats: {
+    work_sessions_today: number;
+    completed_pomodoros: number;
+    remaining_pomodoros: number;
+    estimated_finish_minutes: number;
+    active_task_id: number | null;
+  };
+};
+
 export type BossFight = {
   id: number;
   subject: string;
@@ -63,6 +98,7 @@ export type DashboardState = {
   profile: Profile;
   quests: Quest[];
   sessions: StudySession[];
+  pomodoro: PomodoroBoard;
   bosses: BossFight[];
   events: CalendarEvent[];
   achievements: Array<{ key: string; title: string; description: string; unlocked_at: string }>;

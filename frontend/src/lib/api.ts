@@ -36,6 +36,17 @@ export const api = {
   antiBoredom: () => request<{ type: string; prompt: string; xp_hint: number }>("/anti-boredom"),
   updateSettings: (payload: Record<string, unknown>) =>
     request("/settings", { method: "PATCH", body: JSON.stringify(payload) }),
+  pomodoroSettings: (payload: Record<string, unknown>) =>
+    request("/pomodoro/settings", { method: "PATCH", body: JSON.stringify(payload) }),
+  createPomodoroTask: (payload: Record<string, unknown>) =>
+    request("/pomodoro/tasks", { method: "POST", body: JSON.stringify(payload) }),
+  updatePomodoroTask: (taskId: number, payload: Record<string, unknown>) =>
+    request(`/pomodoro/tasks/${taskId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deletePomodoroTask: (taskId: number) => request(`/pomodoro/tasks/${taskId}`, { method: "DELETE" }),
+  advancePomodoroTask: (taskId: number, payload: Record<string, unknown> = {}) =>
+    request(`/pomodoro/tasks/${taskId}/advance`, { method: "POST", body: JSON.stringify(payload) }),
+  activatePomodoroTask: (taskId: number) =>
+    request(`/pomodoro/tasks/${taskId}/activate`, { method: "POST" }),
   syncTickTick: () => request("/integrations/ticktick/sync", { method: "POST" }),
   updateTickTickTask: (projectId: string, taskId: string, payload: Record<string, unknown>) =>
     request(`/integrations/ticktick/tasks/${encodeURIComponent(projectId)}/${encodeURIComponent(taskId)}`, { method: "PATCH", body: JSON.stringify(payload) }),

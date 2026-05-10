@@ -8,13 +8,17 @@ from urllib.parse import urlencode
 
 from app.core.config import Settings, get_settings
 from app.db.session import engine, get_db
-from app.models.entities import Achievement, BossFight, CalendarEvent, Mastery, Quest, StudySession
+from app.models.entities import Achievement, BossFight, CalendarEvent, Mastery, PomodoroTask, Quest, StudySession
 from app.schemas.dto import (
     BossFightCreate,
     BossFightOut,
     CalendarEventCreate,
     CalendarEventOut,
     DashboardOut,
+    PomodoroBoardOut,
+    PomodoroSettingsUpdate,
+    PomodoroTaskCreate,
+    PomodoroTaskUpdate,
     ProfileOut,
     QuestCreate,
     QuestOut,
@@ -32,6 +36,17 @@ from app.services.gamification import (
     rank_progression,
     session_xp,
     xp_for_difficulty,
+)
+from app.services.pomodoro import (
+    advance_task,
+    create_task,
+    delete_task,
+    get_or_create_pomodoro_settings,
+    pomodoro_board,
+    serialize_settings,
+    serialize_task,
+    set_active_task,
+    update_task,
 )
 from app.services.integrations import (
     complete_ticktick_task,
@@ -116,6 +131,7 @@ def dashboard(db: Session = Depends(get_db), settings: Settings = Depends(get_se
         profile=profile_out(db),
         quests=[QuestOut.model_validate(row) for row in quests],
         sessions=[StudySessionOut.model_validate(row) for row in sessions],
+        pomodoro=PomodoroBoardOut.model_validate(pomodoro_board(db)),
         bosses=[boss_out(row) for row in bosses],
         events=[CalendarEventOut.model_validate(row) for row in events],
         achievements=achievements,
@@ -169,6 +185,72 @@ def health(settings: Settings = Depends(get_settings), db: Session = Depends(get
             },
         },
     }
+
+
+@router.get("/pomodoro", response_model=PomodoroBoardOut)
+def get_pomodoro_board(db: Session = Depends(get_db)) -> PomodoroBoardOut:
+    return PomodoroBoardOut.model_validate(pomodoro_board(db))
+
+
+@router.patch("/pomodoro/settings")
+def update_pomodoro_settings(payload: PomodoroSettingsUpdate, db: Session = Depends(get_db)) -> dict:
+    settings = get_or_create_pomodoro_settings(db)
+    data = payload.model_dump(exclude_unset=True)
+    for key, value in data.items():
+        setattr(settings, key, value)
+    db.commit()
+    db.refresh(settings)
+    return pomodoro_board(db)
+
+
+@router.post("/pomodoro/tasks")
+def create_pomodoro_task(payload: PomodoroTaskCreate, db: Session = Depends(get_db)) -> dict:
+    task = create_task(db, payload.title, payload.subject, payload.estimated_pomodoros)
+    return serialize_task(task)
+
+
+@router.patch("/pomodoro/tasks/{task_id}")
+def patch_pomodoro_task(task_id: int, payload: PomodoroTaskUpdate, db: Session = Depends(get_db)) -> dict:
+    task = db.get(PomodoroTask, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Pomodoro task not found")
+    return serialize_task(update_task(db, task, payload.model_dump(exclude_unset=True)))
+
+
+@router.post("/pomodoro/tasks/{task_id}/advance")
+def advance_pomodoro_task(task_id: int, payload: dict | None = None, db: Session = Depends(get_db)) -> dict:
+    task = db.get(PomodoroTask, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Pomodoro task not found")
+    amount = 1
+    if payload and isinstance(payload, dict) and payload.get("amount") is not None:
+        try:
+            amount = int(payload["amount"])
+        except Exception:
+            amount = 1
+    return serialize_task(advance_task(db, task, amount))
+
+
+@router.post("/pomodoro/tasks/{task_id}/activate")
+def activate_pomodoro_task(task_id: int, db: Session = Depends(get_db)) -> dict:
+    task = db.get(PomodoroTask, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Pomodoro task not found")
+    settings = set_active_task(db, task_id)
+    return {"settings": serialize_settings(settings), "active_task": serialize_task(task)}
+
+
+@router.delete("/pomodoro/tasks/{task_id}")
+def delete_pomodoro_task(task_id: int, db: Session = Depends(get_db)) -> dict:
+    task = db.get(PomodoroTask, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Pomodoro task not found")
+    delete_task(db, task)
+    settings = get_or_create_pomodoro_settings(db)
+    if settings.active_task_id == task_id:
+        settings.active_task_id = None
+        db.commit()
+    return {"deleted": True}
 
 
 @router.get("/deployment-config")
