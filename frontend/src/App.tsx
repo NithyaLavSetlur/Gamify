@@ -68,6 +68,47 @@ const difficultyTone: Record<string, string> = {
 const smoothSpring = { type: "spring", stiffness: 260, damping: 28 } as const;
 const smoothEase = { duration: 0.28, ease: [0.22, 1, 0.36, 1] } as const;
 
+type FullscreenTarget = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+  msRequestFullscreen?: () => Promise<void> | void;
+};
+
+type FullscreenDoc = Document & {
+  webkitFullscreenElement?: Element | null;
+  msFullscreenElement?: Element | null;
+  webkitExitFullscreen?: () => Promise<void> | void;
+  msExitFullscreen?: () => Promise<void> | void;
+};
+
+function fullscreenElement() {
+  const doc = document as FullscreenDoc;
+  return document.fullscreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement || null;
+}
+
+async function enterDeviceFullscreen() {
+  if (typeof document === "undefined" || fullscreenElement()) return Boolean(fullscreenElement());
+  const target = document.documentElement as FullscreenTarget;
+  const request = target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen;
+  if (!request) return false;
+  try {
+    await request.call(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function exitDeviceFullscreen() {
+  if (typeof document === "undefined" || !fullscreenElement()) return;
+  const doc = document as FullscreenDoc;
+  const exit = document.exitFullscreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+  try {
+    await exit?.call(document);
+  } catch {
+    // Browsers can reject this if fullscreen already changed; closing the overlay should still continue.
+  }
+}
+
 export default function App() {
   const [page, setPage] = useState<Page>("timer");
   const [navOpen, setNavOpen] = useState(false);
@@ -149,6 +190,7 @@ export default function App() {
   const themeLabel = theme === "light" ? "Dark mode" : "Light mode";
   const ThemeIcon = theme === "light" ? Moon : Sun;
   const openLockIn = () => {
+    void enterDeviceFullscreen();
     setPage("timer");
     setLockInRequest(Date.now());
   };
@@ -1392,7 +1434,10 @@ function PomodoroTimer({ state, refresh, triggerReward, lockInRequest }: { state
   }, [showSettings, settings]);
 
   useEffect(() => {
-    if (lockInRequest > 0) setLockInOpen(true);
+    if (lockInRequest > 0) {
+      void enterDeviceFullscreen();
+      setLockInOpen(true);
+    }
   }, [lockInRequest]);
 
   useEffect(() => {
@@ -1491,6 +1536,14 @@ function PomodoroTimer({ state, refresh, triggerReward, lockInRequest }: { state
   };
 
   const estimateText = formatDuration(board.stats.estimated_finish_minutes);
+  const openLockInMode = () => {
+    void enterDeviceFullscreen();
+    setLockInOpen(true);
+  };
+  const closeLockInMode = () => {
+    setLockInOpen(false);
+    void exitDeviceFullscreen();
+  };
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1.05fr_.95fr]">
@@ -1533,7 +1586,7 @@ function PomodoroTimer({ state, refresh, triggerReward, lockInRequest }: { state
 
           <div className="flex flex-wrap justify-center gap-2">
             <Button onClick={startPause}>{running ? <Pause size={16} /> : <Play size={16} />} {running ? "Pause" : "Start"}</Button>
-            <Button variant="ghost" onClick={() => setLockInOpen(true)}>
+            <Button variant="ghost" onClick={openLockInMode}>
               <Maximize2 size={16} /> Lock in mode
             </Button>
             <Button variant="ghost" onClick={reset}>
@@ -1622,7 +1675,7 @@ function PomodoroTimer({ state, refresh, triggerReward, lockInRequest }: { state
             seconds={seconds}
             running={running}
             currentTask={currentTask}
-            onClose={() => setLockInOpen(false)}
+            onClose={closeLockInMode}
           />
         )}
         {showSettings && (
@@ -1673,20 +1726,51 @@ function LockInOverlay({
   onClose: () => void;
 }) {
   const profile = state.profile;
+  const fullscreenRequestedRef = useRef(false);
   const mediaUrl = profile.lock_media_url?.trim();
   const mediaPosition = profile.lock_media_position || "right";
   const showMedia = Boolean(mediaUrl) && mediaPosition !== "hidden";
   const media = showMedia ? <LockInMedia url={mediaUrl} background={mediaPosition === "background"} /> : null;
+
+  useEffect(() => {
+    let mounted = true;
+    void enterDeviceFullscreen().then((entered) => {
+      if (mounted) fullscreenRequestedRef.current = entered;
+    });
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+    };
+    const handleFullscreenChange = () => {
+      if (fullscreenRequestedRef.current && !fullscreenElement()) {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
+    };
+  }, [onClose]);
+
   const content = (
     <div className="relative z-10 grid min-h-0 gap-6 p-6 text-white sm:p-10">
-      <div className="flex items-center justify-between gap-4">
+      <div>
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-violet-300">Lock in</p>
           <h2 className="mt-1 text-2xl font-black sm:text-4xl">{running ? phaseLabelText : "Ready when you are"}</h2>
         </div>
-        <button type="button" aria-label="Exit lock in" onClick={onClose} className="rounded-full border border-white/15 bg-white/8 p-3 text-white transition hover:bg-white/15">
-          <X size={20} />
-        </button>
       </div>
 
       {profile.lock_show_timer && (
@@ -1734,6 +1818,14 @@ function LockInOverlay({
 
   return (
     <motion.div className="fixed inset-0 z-[80] overflow-y-auto bg-black" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <button
+        type="button"
+        aria-label="Exit lock in"
+        onClick={onClose}
+        className="fixed right-4 top-4 z-[90] grid h-12 w-12 place-items-center rounded-full border border-white/15 bg-white/10 text-white shadow-[0_16px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl transition hover:bg-white/18 focus:outline-none focus:ring-4 focus:ring-violet-400/30"
+      >
+        <X size={22} />
+      </button>
       {mediaPosition === "background" && media}
       <div className={`relative mx-auto grid min-h-screen max-w-7xl ${showMedia && mediaPosition !== "background" ? layoutClass : ""}`}>
         {showMedia && mediaPosition === "left" && <div className="min-h-64 p-4 lg:min-h-screen">{media}</div>}
