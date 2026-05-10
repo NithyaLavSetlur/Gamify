@@ -227,8 +227,8 @@ export default function App() {
           <AnimatePresence>
             {navOpen && (
               <>
-                <motion.button
-                  aria-label="Close navigation"
+                <motion.div
+                  aria-hidden="true"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -241,6 +241,20 @@ export default function App() {
                   exit={{ opacity: 0, x: "-50%", y: -10, scale: 0.99 }}
                   className="nav-overlay-panel fixed left-1/2 top-[4.75rem] z-40 w-[min(68rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-[0_24px_70px_rgba(71,61,104,0.16)] backdrop-blur-xl"
                 >
+                  <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-3">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Navigation</p>
+                      <p className="text-sm font-black text-slate-900">Choose your workspace</p>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="Close navigation"
+                      onClick={() => setNavOpen(false)}
+                      className="grid h-9 w-9 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-violet-200 hover:text-slate-950"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
                   <div className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
                     {nav.map((item) => {
                       const Icon = item.icon;
@@ -605,8 +619,8 @@ function WorkflowIntelligencePanel({ workflow }: { workflow: IntegrationIntellig
           </div>
         </div>
         <div className="mt-4 grid gap-2">
-          {workflow.recommendations.map((item) => (
-            <div key={item} className="rounded-lg border border-white/10 bg-ink/45 p-3 text-sm text-slate-300">
+          {workflow.recommendations.map((item, index) => (
+            <div key={`${item}-${index}`} className="rounded-lg border border-white/10 bg-ink/45 p-3 text-sm text-slate-300">
               {item}
             </div>
           ))}
@@ -1469,7 +1483,7 @@ function LockInOverlay({
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-violet-300">Lock in</p>
           <h2 className="mt-1 text-2xl font-black sm:text-4xl">{running ? phaseLabelText : "Ready when you are"}</h2>
         </div>
-        <button onClick={onClose} className="rounded-full border border-white/15 bg-white/8 p-3 text-white transition hover:bg-white/15">
+        <button type="button" aria-label="Exit lock in" onClick={onClose} className="rounded-full border border-white/15 bg-white/8 p-3 text-white transition hover:bg-white/15">
           <X size={20} />
         </button>
       </div>
@@ -1610,10 +1624,10 @@ function PomodoroTaskRow({
           <Progress value={task.completed_pomodoros} max={Math.max(1, task.estimated_pomodoros)} tone={active ? "jade" : "gold"} />
         </div>
         <div className="flex shrink-0 flex-col gap-2">
-          <Button variant="ghost" onClick={() => void onActivate()}><TargetIcon size={14} /></Button>
-          <Button variant="ghost" onClick={onBeginEdit}><Settings size={14} /></Button>
-          <Button variant="ghost" onClick={() => void onComplete()}><CheckCircle2 size={14} /></Button>
-          <Button variant="ghost" onClick={() => void onDelete()}><X size={14} /></Button>
+          <Button variant="ghost" aria-label={`Activate ${task.title}`} onClick={() => void onActivate()}><TargetIcon size={14} /></Button>
+          <Button variant="ghost" aria-label={`Edit ${task.title}`} onClick={onBeginEdit}><Settings size={14} /></Button>
+          <Button variant="ghost" aria-label={`Complete ${task.title}`} onClick={() => void onComplete()}><CheckCircle2 size={14} /></Button>
+          <Button variant="ghost" aria-label={`Delete ${task.title}`} onClick={() => void onDelete()}><X size={14} /></Button>
         </div>
       </div>
     </div>
@@ -2505,6 +2519,8 @@ function AssistantBubbleV2() {
                 </p>
               </div>
               <button
+                type="button"
+                aria-label="Close assistant"
                 onClick={() => setOpen(false)}
                 className="rounded-full border border-slate-200 bg-white p-2 text-slate-500 transition hover:border-violet-200 hover:text-slate-900"
               >
@@ -2515,11 +2531,11 @@ function AssistantBubbleV2() {
             <div className="space-y-3 px-4 py-3">
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
                 <div className="flex flex-wrap gap-2">
-                  {subjects.slice(0, 3).map((item) => <span key={item} className="rounded-full bg-violet-100 px-2 py-1 text-violet-700">{item}</span>)}
-                  {windows.slice(0, 3).map((item) => <span key={item} className="rounded-full bg-slate-200 px-2 py-1 text-slate-700">{item}</span>)}
-                  {workflowHints.slice(0, 3).map((item) => <span key={item} className="rounded-full bg-amber-100 px-2 py-1 text-amber-800">{item.replace(/_/g, " ")}</span>)}
-                  {topics.slice(0, 2).map((item) => <span key={item} className="rounded-full bg-purple-100 px-2 py-1 text-purple-700">{item}</span>)}
-                  {constraints.slice(0, 2).map((item) => <span key={item} className="rounded-full bg-rose-100 px-2 py-1 text-rose-700">{item.length > 18 ? `${item.slice(0, 18)}…` : item}</span>)}
+                  {subjects.slice(0, 3).map((item, index) => <span key={`subject-${item}-${index}`} className="rounded-full bg-violet-100 px-2 py-1 text-violet-700">{item}</span>)}
+                  {windows.slice(0, 3).map((item, index) => <span key={`window-${item}-${index}`} className="rounded-full bg-slate-200 px-2 py-1 text-slate-700">{item}</span>)}
+                  {workflowHints.slice(0, 3).map((item, index) => <span key={`hint-${item}-${index}`} className="rounded-full bg-amber-100 px-2 py-1 text-amber-800">{item.replace(/_/g, " ")}</span>)}
+                  {topics.slice(0, 2).map((item, index) => <span key={`topic-${item}-${index}`} className="rounded-full bg-purple-100 px-2 py-1 text-purple-700">{item}</span>)}
+                  {constraints.slice(0, 2).map((item, index) => <span key={`constraint-${item}-${index}`} className="rounded-full bg-rose-100 px-2 py-1 text-rose-700">{item.length > 18 ? `${item.slice(0, 18)}…` : item}</span>)}
                 </div>
                 <p className="mt-2">I adapt the workflow engine from your notes, calendar, and TickTick.</p>
               </div>
@@ -2620,7 +2636,7 @@ function ProgressRing({ value, max, label }: { value: number; max: number; label
     <div className="text-center">
       <div className="mx-auto grid h-[5.25rem] w-[5.25rem] place-items-center rounded-full" style={{ background: `conic-gradient(#2dd4bf ${pct * 3.6}deg, rgba(139,124,246,.16) 0deg)` }}>
         <div className="grid h-[4.25rem] w-[4.25rem] place-items-center rounded-full bg-white">
-          <span className="text-base font-black text-white">{pct}%</span>
+          <span className="text-base font-black text-slate-900">{pct}%</span>
         </div>
       </div>
       <p className="mt-2 text-xs font-bold text-slate-300">{label}</p>

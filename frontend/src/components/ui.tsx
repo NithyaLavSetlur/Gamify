@@ -8,6 +8,7 @@ export function Button({
   children,
   className = "",
   variant = "primary",
+  type = "button",
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "ghost" | "danger" }) {
   const variants = {
@@ -17,6 +18,7 @@ export function Button({
   };
   return (
     <button
+      type={type}
       className={`inline-flex min-h-9 items-center justify-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold transition duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
       {...props}
     >
