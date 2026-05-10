@@ -45,7 +45,7 @@ def analyze_workflow(db, settings: Settings) -> dict[str, Any]:
         "subject_load": subject_scores,
         "recommendations": recommendations,
         "plan": plan,
-        "best_mode_today": choose_best_mode(task_context, calendar_context),
+        "best_mode_today": choose_best_mode(task_context, calendar_context, user_context),
         "task_to_feature_map": [
             {
                 "feature": "Daily quests",
