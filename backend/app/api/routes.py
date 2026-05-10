@@ -48,6 +48,7 @@ from app.services.pomodoro import (
     set_active_task,
     update_task,
 )
+from app.services.workflow_ai import analyze_workflow
 from app.services.integrations import (
     complete_ticktick_task,
     create_google_event,
@@ -429,6 +430,7 @@ def integrations_intelligence(db: Session = Depends(get_db), settings: Settings 
         ],
         "ticktick": ticktick,
         "google_calendar": google,
+        "workflow": analyze_workflow(db, settings),
     }
 
 

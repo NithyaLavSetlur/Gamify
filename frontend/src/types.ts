@@ -173,6 +173,88 @@ export type IntegrationIntelligence = {
       topics: string[];
     }>;
   };
+  workflow: {
+    engine: string;
+    generated_at: string;
+    summary: {
+      connected: boolean;
+      ticktick_tasks: number;
+      ticktick_open_tasks: number;
+      ticktick_overdue_tasks: number;
+      ticktick_due_today: number;
+      ticktick_due_next_7_days: number;
+      calendar_events: number;
+      study_blocks: number;
+      exam_events: number;
+      free_windows: number;
+    };
+    task_priorities: Array<{
+      id: string | null;
+      title: string | null;
+      project_name: string | null;
+      subject: string | null;
+      due_date: string | null;
+      difficulty: string;
+      xp_reward: number;
+      priority_score: number;
+      estimated_pomodoros: number;
+      reason: string;
+      source: string;
+    }>;
+    calendar_load: Array<{
+      date: string;
+      events: Array<{
+        id: string | null;
+        title: string;
+        starts_at: string;
+        ends_at: string;
+        is_study_block: boolean;
+        subject: string;
+        used_as: string;
+      }>;
+      free_windows: Array<{
+        start: string;
+        end: string;
+        duration_minutes: number;
+      }>;
+      busy_minutes: number;
+      study_blocks: Array<Record<string, unknown>>;
+      exam_events: Array<Record<string, unknown>>;
+    }>;
+    subject_load: Array<{
+      subject: string;
+      task_count: number;
+      event_count: number;
+      xp: number;
+      score: number;
+    }>;
+    recommendations: string[];
+    plan: Array<{
+      date: string;
+      label: string;
+      focus_minutes: number;
+      study_blocks: number;
+      exam_events: number;
+      top_tasks: Array<{
+        title: string | null;
+        subject: string | null;
+        difficulty: string | null;
+        xp_reward: number | null;
+        estimated_pomodoros: number;
+        reason: string | null;
+      }>;
+      recommended_feature: string;
+    }>;
+    best_mode_today: {
+      name: string;
+      reason: string;
+      minutes: number;
+    };
+    task_to_feature_map: Array<{
+      feature: string;
+      use: string;
+    }>;
+  };
 };
 
 export type IntegrationInterpretation = {

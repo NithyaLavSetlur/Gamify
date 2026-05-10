@@ -368,7 +368,7 @@ function IntegrationDataHub({ refresh, completeWithReward }: { refresh: () => Pr
   const [intel, setIntel] = useState<IntegrationIntelligence | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [tab, setTab] = useState<"overview" | "ticktick" | "calendar" | "gameplay">("overview");
+  const [tab, setTab] = useState<"overview" | "workflow" | "ticktick" | "calendar" | "gameplay">("overview");
   const load = async () => {
     setLoading(true);
     try {
@@ -424,17 +424,125 @@ function IntegrationDataHub({ refresh, completeWithReward }: { refresh: () => Pr
       </Panel>
 
       <div className="flex flex-wrap gap-2">
-        {(["overview", "ticktick", "calendar", "gameplay"] as const).map((item) => (
+        {(["overview", "workflow", "ticktick", "calendar", "gameplay"] as const).map((item) => (
           <Button key={item} variant={tab === item ? "primary" : "ghost"} onClick={() => setTab(item)}>
-            {item === "overview" ? "How it works" : item === "ticktick" ? "TickTick data" : item === "calendar" ? "Calendar data" : "Generated gameplay"}
+            {item === "overview" ? "How it works" : item === "workflow" ? "Workflow AI" : item === "ticktick" ? "TickTick data" : item === "calendar" ? "Calendar data" : "Generated gameplay"}
           </Button>
         ))}
       </div>
 
       {tab === "overview" && <IntegrationRules rules={intel.rules} />}
+      {tab === "workflow" && <WorkflowIntelligencePanel workflow={intel.workflow} />}
       {tab === "ticktick" && <TickTickDataExplorer intel={intel} completeWithReward={completeWithReward} />}
       {tab === "calendar" && <CalendarDataExplorer intel={intel} />}
       {tab === "gameplay" && <GeneratedGameplay intel={intel} completeWithReward={completeWithReward} />}
+    </div>
+  );
+}
+
+function WorkflowIntelligencePanel({ workflow }: { workflow: IntegrationIntelligence["workflow"] }) {
+  const topTask = workflow.task_priorities[0];
+  const today = workflow.plan[0];
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1.05fr_.95fr]">
+      <Panel>
+        <PanelHeader title="Workflow AI" />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <MiniStat icon={<Target className="text-jade" />} label="Best mode today" value={workflow.best_mode_today.name} />
+          <MiniStat icon={<CalendarDays className="text-gold" />} label="Free windows" value={String(workflow.summary.free_windows)} />
+          <MiniStat icon={<ListChecks className="text-rune" />} label="Due today" value={String(workflow.summary.ticktick_due_today)} />
+          <MiniStat icon={<Swords className="text-ember" />} label="Exam events" value={String(workflow.summary.exam_events)} />
+        </div>
+        <div className="mt-4 rounded-lg border border-white/10 bg-ink/50 p-4">
+          <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Today&apos;s workflow</p>
+          <h3 className="mt-2 text-2xl font-black text-white">{workflow.best_mode_today.name}</h3>
+          <p className="mt-2 text-sm text-slate-300">{workflow.best_mode_today.reason}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Badge tone="easy">{workflow.best_mode_today.minutes} min blocks</Badge>
+            <Badge tone="medium">{today.focus_minutes} min usable focus time</Badge>
+            <Badge tone="hard">{today.top_tasks.length} top tasks</Badge>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-2">
+          {workflow.recommendations.map((item) => (
+            <div key={item} className="rounded-lg border border-white/10 bg-ink/45 p-3 text-sm text-slate-300">
+              {item}
+            </div>
+          ))}
+        </div>
+      </Panel>
+      <Panel>
+        <PanelHeader title="Top Priority Task" />
+        {topTask ? (
+          <div className="space-y-3">
+            <div className="rounded-lg border border-jade/25 bg-jade/10 p-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-jade">Next action</p>
+              <h3 className="mt-2 text-xl font-black text-white">{topTask.title}</h3>
+              <p className="mt-1 text-sm text-slate-300">{topTask.project_name} · {topTask.subject}</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                <SettingPill label="Priority" value={topTask.priority_score.toFixed(1)} />
+                <SettingPill label="Pomodoros" value={String(topTask.estimated_pomodoros)} />
+                <SettingPill label="XP" value={`${topTask.xp_reward} XP`} />
+              </div>
+              <p className="mt-3 text-sm text-slate-300">{topTask.reason}</p>
+            </div>
+            <div className="grid gap-2">
+              {workflow.task_priorities.slice(0, 6).map((task) => (
+                <div key={`${task.id ?? task.title}-${task.priority_score}`} className="rounded-lg border border-white/10 bg-ink/50 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="font-bold text-white">{task.title}</h4>
+                      <p className="text-xs text-slate-400">{task.project_name} · {task.subject} · {task.difficulty}</p>
+                    </div>
+                    <Badge tone={task.difficulty}>{task.estimated_pomodoros} pomos</Badge>
+                  </div>
+                  <div className="mt-2 text-xs text-slate-400">
+                    {task.due_date ? `Due ${task.due_date}` : "No due date"} · {task.reason}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <EmptyState icon={<Brain />} title="No task pressure detected" body="Sync TickTick and Calendar to generate a real workflow forecast." />
+        )}
+      </Panel>
+      <Panel className="xl:col-span-2">
+        <PanelHeader title="7-Day Workflow Map" />
+        <div className="grid gap-3 lg:grid-cols-7">
+          {workflow.plan.map((day) => (
+            <div key={day.date} className="rounded-lg border border-white/10 bg-ink/45 p-3">
+              <div className="mb-2">
+                <p className="text-sm font-black text-white">{day.label}</p>
+                <p className="text-xs text-slate-500">{day.date}</p>
+              </div>
+              <p className="text-xs text-slate-400">{day.focus_minutes} min focus</p>
+              <p className="mt-1 text-xs text-slate-400">{day.recommended_feature}</p>
+              <div className="mt-3 space-y-2">
+                {day.top_tasks.length === 0 ? (
+                  <p className="rounded border border-dashed border-white/10 p-2 text-xs text-slate-500">No priority tasks</p>
+                ) : day.top_tasks.map((task) => (
+                  <div key={`${day.date}-${task.title}`} className="rounded-md bg-white/7 p-2">
+                    <p className="text-xs font-bold text-white">{task.title}</p>
+                    <p className="text-[11px] text-slate-400">{task.subject} · {task.estimated_pomodoros} pomos</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Panel>
+      <Panel className="xl:col-span-2">
+        <PanelHeader title="Feature Allocation" />
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {workflow.task_to_feature_map.map((item) => (
+            <div key={item.feature} className="rounded-lg border border-white/10 bg-ink/45 p-4">
+              <h3 className="font-bold text-white">{item.feature}</h3>
+              <p className="mt-2 text-sm text-slate-400">{item.use}</p>
+            </div>
+          ))}
+        </div>
+      </Panel>
     </div>
   );
 }
