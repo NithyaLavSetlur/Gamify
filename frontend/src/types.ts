@@ -205,6 +205,10 @@ export type IntegrationIntelligence = {
       priority_score: number;
       estimated_pomodoros: number;
       reason: string;
+      urgency: string;
+      recommended_action: string;
+      ai_tags: string[];
+      target_feature: string;
       source: string;
     }>;
     calendar_load: Array<{
@@ -256,6 +260,45 @@ export type IntegrationIntelligence = {
       reason: string;
       minutes: number;
     };
+    next_session: {
+      title: string | null;
+      subject: string;
+      minutes: number;
+      mode: string;
+      source: string | null;
+      start: string | null;
+      end: string | null;
+      reason: string;
+    };
+    ai_actions: Array<{
+      surface: string;
+      title: string;
+      body: string;
+      priority: string;
+      cta: string;
+    }>;
+    data_quality: Array<{
+      level: string;
+      title: string;
+      body: string;
+    }>;
+    smart_defaults: {
+      quest_sort: string;
+      timer_minutes: number;
+      timer_mode: string;
+      default_subject: string;
+      daily_goal_pressure: string;
+      show_boss_first: boolean;
+    };
+    model_briefing: {
+      model_used: boolean;
+      status: string;
+      daily_brief: string;
+      focus_rule: string;
+      risks: string[];
+      suggested_context_question: string;
+    };
+    chatbot_prompts: string[];
     task_to_feature_map: Array<{
       feature: string;
       use: string;
@@ -347,6 +390,10 @@ export type AssistantState = {
     topics: string[];
     recent_notes: string[];
     tone: string | null;
+    engine: {
+      model_enabled: boolean;
+      model: string;
+    };
     context_map: {
       study_windows: string[];
       subject_focus: string[];

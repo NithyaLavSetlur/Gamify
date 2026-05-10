@@ -199,6 +199,13 @@ Redeploy backend after adding credentials. OAuth buttons unlock automatically wh
 
 The floating Context AI bubble stores brief user notes in the backend and feeds them into workflow analysis for TickTick tasks and Google Calendar events. It extracts study windows, subjects, constraints, task sorting preferences, timer preferences, and tone.
 
+The backend workflow AI now uses that context across imported data:
+
+- TickTick tasks are scored by due date, priority, project, subject, XP, difficulty, and saved user context.
+- Google Calendar events are interpreted as timeline items, study blocks, quests, or boss-fight prep.
+- The Data Hub shows a next AI session, app-wide AI actions, smart defaults, data quality warnings, and a 7-day workflow map.
+- The chatbot updates the backend context map after each message and the workflow refreshes from that context.
+
 For model-backed replies, set these backend variables and redeploy:
 
 ```env
@@ -206,7 +213,7 @@ OPENAI_API_KEY=your_openai_key
 OPENAI_MODEL=gpt-4o-mini
 ```
 
-The assistant is intentionally concise because it runs inside a small chat panel.
+Without `OPENAI_API_KEY`, the app still works with the deterministic local parser and rule-based workflow AI. With `OPENAI_API_KEY`, the chatbot replies and workflow briefing can use the configured model. The assistant is intentionally concise because it runs inside a small chat panel.
 
 ## Lock In Screen
 

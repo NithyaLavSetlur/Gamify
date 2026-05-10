@@ -587,10 +587,189 @@ function IntegrationDataHub({ refresh, completeWithReward }: { refresh: () => Pr
       </div>
 
       {tab === "overview" && <IntegrationRules rules={intel.rules} />}
-      {tab === "workflow" && <WorkflowIntelligencePanel workflow={intel.workflow} />}
+      {tab === "workflow" && <EnhancedWorkflowIntelligencePanel workflow={intel.workflow} />}
       {tab === "ticktick" && <TickTickDataExplorer intel={intel} completeWithReward={completeWithReward} />}
       {tab === "calendar" && <CalendarDataExplorer intel={intel} />}
       {tab === "gameplay" && <GeneratedGameplay intel={intel} completeWithReward={completeWithReward} />}
+    </div>
+  );
+}
+
+function EnhancedWorkflowIntelligencePanel({ workflow }: { workflow: IntegrationIntelligence["workflow"] }) {
+  const topTask = workflow.task_priorities[0];
+  const today = workflow.plan[0];
+  const modelLabel = workflow.model_briefing.model_used ? "OpenAI assisted" : "Rules engine";
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1.05fr_.95fr]">
+      <Panel>
+        <PanelHeader title="Workflow AI" action={<Badge tone={workflow.model_briefing.model_used ? "boss" : "easy"}>{modelLabel}</Badge>} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <MiniStat icon={<Target className="text-jade" />} label="Best mode today" value={workflow.best_mode_today.name} />
+          <MiniStat icon={<CalendarDays className="text-gold" />} label="Free windows" value={String(workflow.summary.free_windows)} />
+          <MiniStat icon={<ListChecks className="text-rune" />} label="Due today" value={String(workflow.summary.ticktick_due_today)} />
+          <MiniStat icon={<Swords className="text-ember" />} label="Exam events" value={String(workflow.summary.exam_events)} />
+        </div>
+        <div className="mt-4 rounded-lg border border-white/10 bg-ink/50 p-4">
+          <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Today's workflow</p>
+          <h3 className="mt-2 text-2xl font-black text-white">{workflow.best_mode_today.name}</h3>
+          <p className="mt-2 text-sm text-slate-300">{workflow.best_mode_today.reason}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Badge tone="easy">{workflow.best_mode_today.minutes} min blocks</Badge>
+            <Badge tone="medium">{today.focus_minutes} min usable focus time</Badge>
+            <Badge tone="hard">{today.top_tasks.length} top tasks</Badge>
+          </div>
+        </div>
+        <div className="mt-4 rounded-lg border border-rune/20 bg-rune/10 p-4">
+          <div className="flex items-start gap-3">
+            <Brain className="mt-0.5 shrink-0 text-rune" size={20} />
+            <div>
+              <p className="text-xs uppercase tracking-[0.16em] text-violet-300">AI briefing</p>
+              <p className="mt-2 text-sm leading-6 text-slate-200">{workflow.model_briefing.daily_brief}</p>
+              <p className="mt-2 text-xs text-slate-400">{workflow.model_briefing.focus_rule}</p>
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-2">
+          {workflow.recommendations.map((item, index) => (
+            <div key={`${item}-${index}`} className="rounded-lg border border-white/10 bg-ink/45 p-3 text-sm text-slate-300">
+              {item}
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      <Panel>
+        <PanelHeader title="Next AI Session" />
+        <div className="mb-4 rounded-lg border border-gold/25 bg-gold/10 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.16em] text-gold">Recommended lock-in</p>
+              <h3 className="mt-2 text-xl font-black text-white">{workflow.next_session.title ?? "Deep work block"}</h3>
+              <p className="mt-1 text-sm text-slate-300">{workflow.next_session.subject} - {workflow.next_session.minutes} min - {workflow.next_session.mode.replace("_", " ")}</p>
+            </div>
+            <Badge tone="medium">{workflow.next_session.source ?? "ai"}</Badge>
+          </div>
+          <p className="mt-3 text-sm text-slate-300">{workflow.next_session.reason}</p>
+          {workflow.next_session.start && <p className="mt-2 text-xs text-slate-500">Best window: {new Date(workflow.next_session.start).toLocaleString()} - {workflow.next_session.end ? new Date(workflow.next_session.end).toLocaleTimeString() : ""}</p>}
+        </div>
+
+        <PanelHeader title="Top Priority Task" />
+        {topTask ? (
+          <div className="space-y-3">
+            <div className="rounded-lg border border-jade/25 bg-jade/10 p-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-jade">Next action</p>
+              <h3 className="mt-2 text-xl font-black text-white">{topTask.title}</h3>
+              <p className="mt-1 text-sm text-slate-300">{topTask.project_name} - {topTask.subject}</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                <SettingPill label="Priority" value={topTask.priority_score.toFixed(1)} />
+                <SettingPill label="Pomodoros" value={String(topTask.estimated_pomodoros)} />
+                <SettingPill label="XP" value={`${topTask.xp_reward} XP`} />
+              </div>
+              <p className="mt-3 text-sm text-slate-300">{topTask.reason}</p>
+              <p className="mt-2 text-xs font-semibold text-jade">{topTask.recommended_action}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Badge tone={topTask.difficulty}>{topTask.urgency}</Badge>
+                <Badge tone="easy">{topTask.target_feature}</Badge>
+                {topTask.ai_tags.slice(0, 4).map((tag) => <span key={tag} className="rounded border border-white/10 bg-white/7 px-2 py-1 text-xs text-slate-300">{tag}</span>)}
+              </div>
+            </div>
+            <div className="grid gap-2">
+              {workflow.task_priorities.slice(0, 6).map((task) => (
+                <div key={`${task.id ?? task.title}-${task.priority_score}`} className="rounded-lg border border-white/10 bg-ink/50 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="font-bold text-white">{task.title}</h4>
+                      <p className="text-xs text-slate-400">{task.project_name} - {task.subject} - {task.difficulty}</p>
+                    </div>
+                    <Badge tone={task.difficulty}>{task.estimated_pomodoros} pomos</Badge>
+                  </div>
+                  <div className="mt-2 text-xs text-slate-400">{task.due_date ? `Due ${task.due_date}` : "No due date"} - {task.reason}</div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <span className="rounded bg-white/7 px-2 py-1 text-[11px] text-slate-300">{task.target_feature}</span>
+                    <span className="rounded bg-white/7 px-2 py-1 text-[11px] text-slate-300">{task.urgency}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <EmptyState icon={<Brain />} title="No task pressure detected" body="Sync TickTick and Calendar to generate a real workflow forecast." />
+        )}
+      </Panel>
+
+      <Panel className="xl:col-span-2">
+        <PanelHeader title="AI Actions Across The App" />
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {workflow.ai_actions.map((action) => (
+            <div key={`${action.surface}-${action.title}`} className="rounded-lg border border-white/10 bg-ink/45 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{action.surface}</p>
+                  <h3 className="mt-1 font-black text-white">{action.title}</h3>
+                </div>
+                <Badge tone={action.priority === "high" ? "hard" : action.priority === "medium" ? "medium" : "easy"}>{action.priority}</Badge>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-slate-400">{action.body}</p>
+              <p className="mt-3 text-xs font-semibold text-jade">{action.cta}</p>
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      <Panel className="xl:col-span-2">
+        <PanelHeader title="7-Day Workflow Map" />
+        <div className="grid gap-3 lg:grid-cols-7">
+          {workflow.plan.map((day) => (
+            <div key={day.date} className="rounded-lg border border-white/10 bg-ink/45 p-3">
+              <div className="mb-2">
+                <p className="text-sm font-black text-white">{day.label}</p>
+                <p className="text-xs text-slate-500">{day.date}</p>
+              </div>
+              <p className="text-xs text-slate-400">{day.focus_minutes} min focus</p>
+              <p className="mt-1 text-xs text-slate-400">{day.recommended_feature}</p>
+              <div className="mt-3 space-y-2">
+                {day.top_tasks.length === 0 ? (
+                  <p className="rounded border border-dashed border-white/10 p-2 text-xs text-slate-500">No priority tasks</p>
+                ) : day.top_tasks.map((task) => (
+                  <div key={`${day.date}-${task.title}`} className="rounded-md bg-white/7 p-2">
+                    <p className="text-xs font-bold text-white">{task.title}</p>
+                    <p className="text-[11px] text-slate-400">{task.subject} - {task.estimated_pomodoros} pomos</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      <Panel className="xl:col-span-2">
+        <PanelHeader title="Feature Allocation" />
+        <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <SettingPill label="Quest sort" value={workflow.smart_defaults.quest_sort} />
+          <SettingPill label="Timer" value={`${workflow.smart_defaults.timer_minutes} min ${workflow.smart_defaults.timer_mode.replace("_", " ")}`} />
+          <SettingPill label="Default subject" value={workflow.smart_defaults.default_subject} />
+          <SettingPill label="Boss first" value={workflow.smart_defaults.show_boss_first ? "Yes" : "No"} />
+        </div>
+        {workflow.data_quality.length > 0 && (
+          <div className="mb-4 grid gap-2 md:grid-cols-2">
+            {workflow.data_quality.map((item) => (
+              <div key={`${item.title}-${item.body}`} className="rounded-lg border border-gold/20 bg-gold/8 p-3">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-gold">{item.level}</p>
+                <h4 className="mt-1 font-bold text-white">{item.title}</h4>
+                <p className="mt-1 text-sm text-slate-400">{item.body}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {workflow.task_to_feature_map.map((item) => (
+            <div key={item.feature} className="rounded-lg border border-white/10 bg-ink/45 p-4">
+              <h3 className="font-bold text-white">{item.feature}</h3>
+              <p className="mt-2 text-sm text-slate-400">{item.use}</p>
+            </div>
+          ))}
+        </div>
+      </Panel>
     </div>
   );
 }
@@ -2456,29 +2635,9 @@ function AssistantBubbleV2() {
       const response = await api.sendAssistantMessage({ message: trimmed });
       setAssistantError("");
       setFollowUp(response.needs_follow_up ? response.follow_up_question : null);
-      setState((previous) => {
-        const userMessage: AssistantMessage = {
-          id: Date.now(),
-          role: "user",
-          content: trimmed,
-          created_at: new Date().toISOString()
-        };
-        const addedMemories = response.memories_added.map((memory, index) => ({
-          id: Date.now() + index + 1,
-          category: memory.category,
-          key: memory.key,
-          value: memory.value,
-          weight: memory.weight,
-          created_at: new Date().toISOString()
-        }));
-        const nextMessages = previous ? [...previous.messages, userMessage, response.message] : [userMessage, response.message];
-        return {
-          messages: nextMessages,
-          memories: previous ? [...previous.memories, ...addedMemories] : addedMemories,
-          summary: response.summary
-        };
-      });
+      setState((previous) => previous ? { ...previous, messages: [...previous.messages, response.message], summary: response.summary } : { messages: [response.message], memories: [], summary: response.summary });
       setDraft("");
+      void load();
       window.dispatchEvent(new Event("workflow-context-updated"));
     } catch (error) {
       setAssistantError(error instanceof Error ? error.message : "Message failed.");
@@ -2494,6 +2653,14 @@ function AssistantBubbleV2() {
   const windows = state?.summary.study_windows ?? [];
   const topics = state?.summary.topics ?? [];
   const constraints = state?.summary.constraints ?? [];
+  const engine = state?.summary.engine;
+  const contextChips = [
+    ...subjects.slice(0, 3).map((value) => ({ tone: "bg-violet-100 text-violet-700", value })),
+    ...windows.slice(0, 3).map((value) => ({ tone: "bg-slate-200 text-slate-700", value })),
+    ...workflowHints.slice(0, 3).map((value) => ({ tone: "bg-amber-100 text-amber-800", value: value.replace(/_/g, " ") })),
+    ...topics.slice(0, 2).map((value) => ({ tone: "bg-purple-100 text-purple-700", value })),
+    ...constraints.slice(0, 2).map((value) => ({ tone: "bg-rose-100 text-rose-700", value: value.length > 18 ? `${value.slice(0, 18)}...` : value })),
+  ];
 
   return (
     <div className="fixed bottom-3 right-3 z-[60] sm:bottom-4 sm:right-4">
@@ -2517,6 +2684,7 @@ function AssistantBubbleV2() {
                 <p className="mt-1 text-xs text-slate-500">
                   {loading ? "Learning your workspace..." : `${memoryCount} saved notes. I use them to sort tasks and timing.`}
                 </p>
+                <p className="mt-1 text-[11px] text-slate-400">{engine?.model_enabled ? `Model: ${engine.model}` : "Model: local parser"}</p>
               </div>
               <button
                 type="button"
@@ -2537,6 +2705,7 @@ function AssistantBubbleV2() {
                   {topics.slice(0, 2).map((item, index) => <span key={`topic-${item}-${index}`} className="rounded-full bg-purple-100 px-2 py-1 text-purple-700">{item}</span>)}
                   {constraints.slice(0, 2).map((item, index) => <span key={`constraint-${item}-${index}`} className="rounded-full bg-rose-100 px-2 py-1 text-rose-700">{item.length > 18 ? `${item.slice(0, 18)}…` : item}</span>)}
                 </div>
+                {contextChips.length === 0 && <p className="mt-2 rounded border border-dashed border-slate-200 bg-white px-2 py-1 text-slate-500">No context yet.</p>}
                 <p className="mt-2">I adapt the workflow engine from your notes, calendar, and TickTick.</p>
               </div>
 
@@ -2597,7 +2766,7 @@ function AssistantBubbleV2() {
                   rows={1}
                   className="min-h-11 max-h-36 flex-1 resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-[0.92rem] leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-300 focus:shadow-[0_0_0_4px_rgba(139,124,246,0.08)]"
                 />
-                <Button onClick={() => void send(draft)} disabled={sending} className="shrink-0 rounded-lg">
+                <Button aria-label="Send context message" onClick={() => void send(draft)} disabled={sending || !draft.trim()} className="shrink-0 rounded-lg">
                   <Send size={16} />
                 </Button>
               </div>

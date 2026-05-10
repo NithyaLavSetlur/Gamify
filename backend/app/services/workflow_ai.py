@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
 from typing import Any
+
+import httpx
 
 from app.core.config import Settings
 from app.services.assistant_ai import memory_context_notes
@@ -51,9 +54,14 @@ def analyze_workflow(db, settings: Settings) -> dict[str, Any]:
     plan = build_daily_plan(next_7_days, task_context, calendar_context, user_context)
     subject_scores = build_subject_scores(ticktick_tasks, calendar_events, user_context)
     recommendations = build_recommendations(task_context, calendar_context, subject_scores, user_context)
+    next_session = build_next_session(task_context, calendar_context, subject_scores, user_context)
+    ai_actions = build_ai_actions(task_context, calendar_context, subject_scores, user_context)
+    data_quality = build_data_quality(task_context, calendar_context, user_context, ticktick, google)
+    smart_defaults = build_smart_defaults(task_context, calendar_context, user_context)
+    model_briefing = build_model_briefing(settings, task_context, calendar_context, subject_scores, user_context, next_session)
 
     return {
-        "engine": "deterministic_workflow_ai",
+        "engine": "hybrid_workflow_ai" if model_briefing["model_used"] else "deterministic_workflow_ai",
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "summary": {
             "connected": ticktick.get("connected", False) and google.get("connected", False),
@@ -74,6 +82,12 @@ def analyze_workflow(db, settings: Settings) -> dict[str, Any]:
         "recommendations": recommendations,
         "plan": plan,
         "best_mode_today": choose_best_mode(task_context, calendar_context, user_context),
+        "next_session": next_session,
+        "ai_actions": ai_actions,
+        "data_quality": data_quality,
+        "smart_defaults": smart_defaults,
+        "model_briefing": model_briefing,
+        "chatbot_prompts": build_chatbot_prompts(data_quality, user_context),
         "task_to_feature_map": [
             {
                 "feature": "Daily quests",
@@ -144,6 +158,8 @@ def build_task_context(tasks: list[dict], today: date, user_context: dict[str, A
         priority_score += context_topic_bonus(task_blob, user_context)
         if task.get("interpretation", {}).get("used_as") == "completed_xp":
             priority_score -= 5
+        urgency = urgency_label(days_until_due, task.get("difficulty"))
+        action = recommended_task_action(task, days_until_due, user_context)
         priorities.append(
             {
                 "id": task.get("id"),
@@ -156,6 +172,10 @@ def build_task_context(tasks: list[dict], today: date, user_context: dict[str, A
                 "priority_score": round(priority_score, 1),
                 "estimated_pomodoros": estimate_pomodoros(task),
                 "reason": build_task_reason(task, days_until_due, user_context),
+                "urgency": urgency,
+                "recommended_action": action,
+                "ai_tags": task_tags(task, task_blob, days_until_due, user_context),
+                "target_feature": choose_task_feature(task, days_until_due),
                 "source": "ticktick",
             }
         )
@@ -363,6 +383,231 @@ def choose_feature_for_day(tasks: list[dict], free_minutes: int, exam_events: li
             return "Pomodoro board"
         return "Daily quests"
     return "Calendar view"
+
+
+def build_next_session(task_context: dict[str, Any], calendar_context: dict[str, Any], subject_scores: list[dict], user_context: dict[str, Any]) -> dict[str, Any]:
+    top_task = task_context["priorities"][0] if task_context["priorities"] else None
+    first_window = None
+    for day in calendar_context["days"]:
+        if day["free_windows"]:
+            first_window = {**day["free_windows"][0], "date": day["date"]}
+            break
+    subject = top_task.get("subject") if top_task else (subject_scores[0]["subject"] if subject_scores else "General")
+    minutes = preferred_focus_minutes(user_context, 25 if top_task else 50)
+    if first_window:
+        minutes = min(minutes, max(25, int(first_window["duration_minutes"])))
+    return {
+        "title": top_task.get("title") if top_task else "Deep work block",
+        "subject": subject or "General",
+        "minutes": minutes,
+        "mode": "boss_prep" if top_task and top_task.get("difficulty") == "boss" else ("deep_work" if minutes >= 45 else "pomodoro"),
+        "source": top_task.get("source") if top_task else "calendar",
+        "start": first_window.get("start") if first_window else None,
+        "end": first_window.get("end") if first_window else None,
+        "reason": top_task.get("reason") if top_task else "No urgent task was found, so the AI is reserving the next open block for mastery.",
+    }
+
+
+def build_ai_actions(task_context: dict[str, Any], calendar_context: dict[str, Any], subject_scores: list[dict], user_context: dict[str, Any]) -> list[dict[str, Any]]:
+    actions: list[dict[str, Any]] = []
+    if task_context["overdue_tasks"]:
+        actions.append({
+            "surface": "Daily Quests",
+            "title": "Clear overdue pressure",
+            "body": f"{len(task_context['overdue_tasks'])} overdue TickTick tasks should stay at the top until cleared.",
+            "priority": "high",
+            "cta": "Open Daily Quests",
+        })
+    if task_context["unscheduled"]:
+        actions.append({
+            "surface": "TickTick",
+            "title": "Add dates to unscheduled tasks",
+            "body": f"{len(task_context['unscheduled'])} open tasks have no due date, so the next-7-days plan cannot place them accurately.",
+            "priority": "medium",
+            "cta": "Review TickTick",
+        })
+    if calendar_context["exam_events"]:
+        actions.append({
+            "surface": "Boss Fights",
+            "title": "Turn exam events into prep fights",
+            "body": "Calendar exam/test events should drive boss prep, timed challenges, and 200 XP completion.",
+            "priority": "high",
+            "cta": "Open Boss Fights",
+        })
+    if any(day["free_windows"] for day in calendar_context["days"]):
+        actions.append({
+            "surface": "Study Timer",
+            "title": "Use the next free window",
+            "body": "Calendar gaps are available, so the timer should be the fastest route into work.",
+            "priority": "medium",
+            "cta": "Lock in",
+        })
+    if subject_scores:
+        top = subject_scores[0]
+        actions.append({
+            "surface": "Stats",
+            "title": f"Push {top['subject']} mastery",
+            "body": "This subject has the strongest combined load from tasks, events, XP, and context.",
+            "priority": "low",
+            "cta": "Open Stats",
+        })
+    if context_has(user_context, "avoid_overload"):
+        actions.append({
+            "surface": "Dashboard",
+            "title": "Keep the board narrow",
+            "body": "Your context says to avoid overload, so the UI should emphasize one next action.",
+            "priority": "medium",
+            "cta": "Dashboard",
+        })
+    return actions[:6]
+
+
+def build_data_quality(task_context: dict[str, Any], calendar_context: dict[str, Any], user_context: dict[str, Any], ticktick: dict, google: dict) -> list[dict[str, str]]:
+    warnings: list[dict[str, str]] = []
+    if not ticktick.get("connected"):
+        warnings.append({"level": "warning", "title": "TickTick not live", "body": "Task analysis is using local cached or manual data until TickTick is connected."})
+    if not google.get("connected"):
+        warnings.append({"level": "warning", "title": "Calendar not live", "body": "Schedule analysis is limited until Google Calendar is connected."})
+    if task_context["unscheduled"]:
+        warnings.append({"level": "info", "title": "Unscheduled tasks", "body": "Add due dates in TickTick to make the next-7-days plan more accurate."})
+    if user_context["total_memories"] < 3:
+        warnings.append({"level": "info", "title": "Context is thin", "body": "Tell Context AI about subjects, study times, constraints, and task-order preferences."})
+    if not any(day["free_windows"] for day in calendar_context["days"]):
+        warnings.append({"level": "info", "title": "No free windows detected", "body": "Calendar is busy or unavailable, so the AI will rely more on task due dates."})
+    return warnings[:5]
+
+
+def build_smart_defaults(task_context: dict[str, Any], calendar_context: dict[str, Any], user_context: dict[str, Any]) -> dict[str, Any]:
+    top_task = task_context["priorities"][0] if task_context["priorities"] else {}
+    preferred_minutes = preferred_focus_minutes(user_context, 25)
+    return {
+        "quest_sort": "due_date" if context_has(user_context, "prioritize_due_dates", "organize_by_due_date") else "priority",
+        "timer_minutes": preferred_minutes,
+        "timer_mode": "deep_work" if preferred_minutes >= 45 else "pomodoro",
+        "default_subject": top_task.get("subject") or (user_context.get("subject_focus") or ["General"])[0],
+        "daily_goal_pressure": "high" if len(task_context["due_today"]) >= 3 else "normal",
+        "show_boss_first": bool(calendar_context["exam_events"]),
+    }
+
+
+def build_chatbot_prompts(data_quality: list[dict[str, str]], user_context: dict[str, Any]) -> list[str]:
+    prompts = []
+    if user_context["total_memories"] < 3:
+        prompts.append("What subjects matter most this week?")
+        prompts.append("When do you usually focus best?")
+    if any(item["title"] == "Unscheduled tasks" for item in data_quality):
+        prompts.append("Should I keep undated tasks low priority?")
+    if not user_context.get("timer_preference"):
+        prompts.append("Do you prefer 25 or 50 minute blocks?")
+    prompts.append("Should I sort work by due date, subject, or project?")
+    return prompts[:4]
+
+
+def build_model_briefing(settings: Settings, task_context: dict[str, Any], calendar_context: dict[str, Any], subject_scores: list[dict], user_context: dict[str, Any], next_session: dict[str, Any]) -> dict[str, Any]:
+    fallback = {
+        "model_used": False,
+        "status": "rules_engine",
+        "daily_brief": deterministic_daily_brief(task_context, calendar_context, next_session),
+        "focus_rule": "Start with the highest priority dated task, then use the next calendar gap for one focused block.",
+        "risks": [],
+        "suggested_context_question": "What should I prioritize if tasks and calendar events conflict?",
+    }
+    if not settings.openai_api_key:
+        return fallback
+    payload = {
+        "top_tasks": task_context["priorities"][:6],
+        "calendar_days": calendar_context["days"][:7],
+        "subject_scores": subject_scores[:5],
+        "user_context": user_context,
+        "next_session": next_session,
+    }
+    try:
+        response = httpx.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {settings.openai_api_key}", "Content-Type": "application/json"},
+            json={
+                "model": settings.openai_model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a concise study workflow planner. Return JSON only with daily_brief, focus_rule, risks, suggested_context_question. Keep every string short.",
+                    },
+                    {"role": "user", "content": json.dumps(payload, ensure_ascii=True)},
+                ],
+                "temperature": 0.2,
+                "max_tokens": 220,
+                "response_format": {"type": "json_object"},
+            },
+            timeout=12,
+        )
+        response.raise_for_status()
+        content = (((response.json().get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
+        parsed = json.loads(content)
+        return {
+            "model_used": True,
+            "status": "openai",
+            "daily_brief": str(parsed.get("daily_brief") or fallback["daily_brief"])[:320],
+            "focus_rule": str(parsed.get("focus_rule") or fallback["focus_rule"])[:240],
+            "risks": [str(item)[:160] for item in (parsed.get("risks") or [])][:4],
+            "suggested_context_question": str(parsed.get("suggested_context_question") or fallback["suggested_context_question"])[:160],
+        }
+    except Exception as exc:
+        return {**fallback, "status": f"rules_engine_model_error:{type(exc).__name__}"}
+
+
+def deterministic_daily_brief(task_context: dict[str, Any], calendar_context: dict[str, Any], next_session: dict[str, Any]) -> str:
+    if task_context["due_today"]:
+        return f"Start with {len(task_context['due_today'])} due-today task(s), then protect {next_session['minutes']} minutes for {next_session['subject']}."
+    if calendar_context["exam_events"]:
+        return "Calendar exam pressure is active, so convert the next focus block into boss prep."
+    return f"Use a {next_session['minutes']} minute {next_session['mode'].replace('_', ' ')} block for {next_session['subject']}."
+
+
+def urgency_label(days_until_due: int, difficulty: str | None) -> str:
+    if days_until_due < 0:
+        return "overdue"
+    if days_until_due == 0:
+        return "today"
+    if days_until_due <= 2:
+        return "soon"
+    if difficulty == "boss":
+        return "boss"
+    return "normal"
+
+
+def recommended_task_action(task: dict, days_until_due: int, user_context: dict[str, Any]) -> str:
+    if days_until_due < 0:
+        return "Clear this first or reschedule it in TickTick."
+    if task.get("difficulty") == "boss":
+        return "Break this into boss-fight prep topics."
+    if estimate_pomodoros(task) > 1 or context_has(user_context, "prefer_deep_work"):
+        return "Schedule a focused timer block."
+    return "Complete as a daily quest."
+
+
+def task_tags(task: dict, task_blob: str, days_until_due: int, user_context: dict[str, Any]) -> list[str]:
+    tags = []
+    if days_until_due < 0:
+        tags.append("overdue")
+    elif days_until_due <= 6:
+        tags.append("next_7_days")
+    if task.get("difficulty"):
+        tags.append(str(task["difficulty"]))
+    if context_topic_bonus(task_blob, user_context):
+        tags.append("matches_context")
+    if task.get("project_name"):
+        tags.append("project:" + str(task["project_name"])[:24])
+    return tags[:5]
+
+
+def choose_task_feature(task: dict, days_until_due: int) -> str:
+    if task.get("difficulty") == "boss":
+        return "Boss Fights"
+    if estimate_pomodoros(task) >= 2:
+        return "Study Timer"
+    if days_until_due <= 6:
+        return "Daily Quests"
+    return "TickTick"
 
 
 def context_subject_bonus(subject: str | None, user_context: dict[str, Any]) -> int:

@@ -134,10 +134,15 @@ STOPWORDS = {
 def load_assistant_state(db: Session) -> dict[str, Any]:
     messages = db.query(AssistantMessage).order_by(AssistantMessage.created_at.desc()).limit(24).all()
     memories = db.query(AssistantMemory).order_by(AssistantMemory.weight.desc(), AssistantMemory.updated_at.desc()).limit(24).all()
+    summary = summarize_memories(memories)
+    summary["engine"] = {
+        "model_enabled": bool(get_settings().openai_api_key),
+        "model": get_settings().openai_model if get_settings().openai_api_key else "deterministic_context_parser",
+    }
     return {
         "messages": list(reversed(messages)),
         "memories": list(reversed(memories)),
-        "summary": summarize_memories(memories),
+        "summary": summary,
     }
 
 
@@ -193,6 +198,13 @@ def extract_memories(text: str) -> dict[str, list[dict[str, Any]]]:
         (r"\bi study best (?:at|in) ([^.!,\n]+)", "study_window", "preferred_window", 4),
         (r"\bi work best (?:at|in) ([^.!,\n]+)", "study_window", "preferred_window", 4),
         (r"\bi prefer ([^.!,\n]+)", "preference", "preference", 2),
+        (r"\bi don't like ([^.!,\n]+)", "constraint", "dislike", 3),
+        (r"\bi do not like ([^.!,\n]+)", "constraint", "dislike", 3),
+        (r"\bi struggle with ([^.!,\n]+)", "subject_focus", "weak_subject", 4),
+        (r"\bi am struggling with ([^.!,\n]+)", "subject_focus", "weak_subject", 4),
+        (r"\bi need help with ([^.!,\n]+)", "subject_focus", "help_subject", 4),
+        (r"\bprioriti[sz]e ([^.!,\n]+)", "preference", "priority_rule", 3),
+        (r"\bfocus on ([^.!,\n]+)", "context_phrase", "focus_phrase", 3),
         (r"\bmy strongest subject is ([^.!,\n]+)", "subject_focus", "strong_subject", 4),
         (r"\bmy weak subject is ([^.!,\n]+)", "subject_focus", "weak_subject", 4),
         (r"\bmy exam is on ([^.!,\n]+)", "deadline_focus", "exam_date", 4),
@@ -225,10 +237,17 @@ def extract_memories(text: str) -> dict[str, list[dict[str, Any]]]:
     if any(phrase in lower for phrase in ("don't suggest", "do not suggest", "avoid", "never", "no ", "not ")):
         memories.append({"category": "constraint", "key": "negative_preference", "value": cleaned, "weight": 2})
 
+    if any(phrase in lower for phrase in ("hardest first", "hard tasks first", "eat the frog")):
+        memories.append({"category": "workflow_hint", "key": "hardest_first", "value": "hardest_first", "weight": 3})
+    if any(phrase in lower for phrase in ("easy first", "quick wins", "small tasks first")):
+        memories.append({"category": "workflow_hint", "key": "quick_wins_first", "value": "quick_wins_first", "weight": 3})
+    if any(phrase in lower for phrase in ("stress", "anxious", "overwhelmed", "burned out", "burnt out")):
+        memories.append({"category": "constraint", "key": "energy_or_stress", "value": cleaned, "weight": 3})
+
     memories.extend(extract_topics(cleaned))
 
-    if "remember" in lower and len(memories) == 1:
-        memories.append({"category": "note", "key": "general_note", "value": cleaned, "weight": 1})
+    if len(cleaned.split()) >= 5:
+        memories.append({"category": "context_phrase", "key": "semantic_note", "value": cleaned[:240], "weight": 2})
 
     return {"memories": dedupe_memories(memories)}
 
@@ -409,6 +428,10 @@ def summarize_memories(memories: list[AssistantMemory]) -> dict[str, Any]:
         "topics": [],
         "recent_notes": [],
         "tone": None,
+        "engine": {
+            "model_enabled": False,
+            "model": "deterministic_context_parser",
+        },
         "context_map": {
             "study_windows": [],
             "subject_focus": [],
