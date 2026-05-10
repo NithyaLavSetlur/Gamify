@@ -63,7 +63,7 @@ const difficultyTone: Record<string, string> = {
 };
 
 export default function App() {
-  const [page, setPage] = useState<Page>("dashboard");
+  const [page, setPage] = useState<Page>("timer");
   const [state, setState] = useState<DashboardState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -93,6 +93,14 @@ export default function App() {
     void refresh();
   }, []);
 
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("gamify-last-page", page);
+    } catch {
+      // Ignore storage failures in private browsing or restricted environments.
+    }
+  }, [page]);
+
   const wording = state?.profile.shrivaishnava_mode
     ? { quests: "Sadhana", focus: "Mind refinement", streak: "Discipline flame", mission: "Today's refinement" }
     : { quests: "Quests", focus: "Focus", streak: "Daily streak", mission: "Today's mission" };
@@ -107,10 +115,10 @@ export default function App() {
   if (loading) {
     return (
       <main className="grid min-h-screen place-items-center text-slate-200">
-        <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
-          <Shield className="mx-auto mb-3 text-jade" size={42} />
-          <p className="font-black">Loading study realm...</p>
-        </motion.div>
+      <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
+        <Shield className="mx-auto mb-3 text-jade" size={42} />
+        <p className="font-black">Loading your lock-in room...</p>
+      </motion.div>
       </main>
     );
   }
@@ -192,7 +200,7 @@ export default function App() {
         <div className="mx-auto max-w-7xl px-4 py-5 md:py-7">
           {error && <div className="mb-4 rounded-md border border-ember/40 bg-ember/10 p-3 text-sm text-orange-100">{error}</div>}
           <RankHero state={state} wording={wording} />
-          <QuickLaunch state={state} nextQuest={nextQuest} setPage={setPage} refresh={refresh} wording={wording} />
+      <QuickLaunch state={state} nextQuest={nextQuest} setPage={setPage} refresh={refresh} wording={wording} />
           <AnimatePresence mode="wait">
             <motion.div key={page} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.22 }}>
               {page === "dashboard" && <Dashboard state={state} refresh={refresh} completeWithReward={completeWithReward} wording={wording} />}
@@ -938,7 +946,7 @@ function StudyTimer({ state, refresh, triggerReward }: { state: DashboardState; 
     <div className="space-y-4">
       <Panel className="mx-auto max-w-4xl">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <PanelHeader title="Study Timer" />
+          <PanelHeader title="Lock In" />
           <div className="inline-flex rounded-lg border border-white/10 bg-ink/60 p-1 text-sm">
             <button
               className={`rounded-md px-3 py-2 transition ${view === "pomodoro" ? "bg-jade text-ink" : "text-slate-300 hover:bg-white/5"}`}
