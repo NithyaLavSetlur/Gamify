@@ -1674,9 +1674,9 @@ function SettingsPage({ state, refresh }: { state: DashboardState; refresh: () =
         <div className="grid gap-3 text-sm">
           <ConfigRow label="Study data location" value={storageLabel(database?.url_scheme)} />
           <ConfigRow label="Database status" value={database?.ok ? "Connected and saving" : database?.error ? `Issue: ${database.error}` : "Checking..."} />
-          <div className="rounded-lg border border-jade/20 bg-jade/10 p-4">
-            <p className="font-bold text-white">Your quests, XP, streaks, sessions, bosses, imported tasks, calendar events, and settings are saved by the backend database.</p>
-            <p className="mt-2 text-slate-300">Clearing browser cache may log you out of future account features, but it will not erase the hosted study data stored in Railway/PostgreSQL.</p>
+          <div className="rounded-lg border border-violet-200 bg-violet-50 p-4">
+            <p className="font-bold text-slate-900">Your quests, XP, streaks, sessions, bosses, imported tasks, calendar events, and settings are saved by the backend database.</p>
+            <p className="mt-2 text-slate-600">Clearing browser cache may log you out of future account features, but it will not erase the hosted study data stored in Railway/PostgreSQL.</p>
           </div>
         </div>
       </Panel>
@@ -1991,13 +1991,13 @@ function DashboardActions({ refresh }: { refresh: () => Promise<void> }) {
 
 function IntegrationStatusCard({ status }: { status: { configured: boolean; connected: boolean; manual_fallback: boolean } }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-ink/50 p-4">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
       <div className="grid gap-3 sm:grid-cols-3">
         <StatusPill label="Configured" active={status.configured} />
         <StatusPill label="Connected" active={status.connected} />
         <StatusPill label="Fallback ready" active={status.manual_fallback} />
       </div>
-      <p className="mt-3 text-sm text-slate-400">{status.connected ? "Connected and ready to sync." : status.configured ? "Credentials are configured. Use Connect to finish OAuth." : "Not connected yet. Manual quests, local calendar blocks, XP, streaks, boss fights, timer, and stats still work."}</p>
+      <p className="mt-3 text-sm text-slate-600">{status.connected ? "Connected and ready to sync." : status.configured ? "Credentials are configured. Use Connect to finish OAuth." : "Not connected yet. Manual quests, local calendar blocks, XP, streaks, boss fights, timer, and stats still work."}</p>
     </div>
   );
 }
@@ -2255,7 +2255,7 @@ function AssistantBubbleV2() {
   const constraints = state?.summary.constraints ?? [];
 
   return (
-    <div className="fixed bottom-4 right-4 z-[60]">
+    <div className="fixed bottom-3 right-3 z-[60] sm:bottom-4 sm:right-4">
       <AnimatePresence mode="wait">
         {open ? (
           <motion.div
@@ -2264,7 +2264,7 @@ function AssistantBubbleV2() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 250, damping: 24 }}
-            className="w-[min(92vw,22rem)] overflow-hidden rounded-xl border border-slate-200 bg-white/96 shadow-[0_24px_70px_rgba(71,61,104,0.14)] backdrop-blur-xl"
+            className="w-[min(92vw,21rem)] overflow-hidden rounded-xl border border-slate-200 bg-white/96 shadow-[0_24px_70px_rgba(71,61,104,0.14)] backdrop-blur-xl"
           >
             <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-3">
               <div className="min-w-0">
@@ -2369,13 +2369,13 @@ function AssistantBubbleV2() {
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setOpen(true)}
-            className="group flex items-center gap-3 rounded-full border border-slate-200 bg-white/95 px-4 py-3 text-left shadow-[0_18px_50px_rgba(71,61,104,0.12)] backdrop-blur-xl transition hover:border-violet-300 hover:shadow-[0_24px_60px_rgba(109,87,230,0.16)]"
+            className="group flex items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-3 py-2 text-left shadow-[0_18px_50px_rgba(71,61,104,0.12)] backdrop-blur-xl transition hover:border-violet-300 hover:shadow-[0_24px_60px_rgba(109,87,230,0.16)] sm:gap-3 sm:px-4 sm:py-3"
           >
-            <span className="relative grid h-10 w-10 place-items-center rounded-full bg-violet-600 text-white">
-              <MessageCircle size={18} />
+            <span className="relative grid h-9 w-9 place-items-center rounded-full bg-violet-600 text-white sm:h-10 sm:w-10">
+              <MessageCircle size={17} />
               <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-400" />
             </span>
-            <span className="min-w-0">
+            <span className="min-w-0 hidden sm:block">
               <span className="block text-sm font-black text-slate-900">Context AI</span>
               <span className="block text-xs text-slate-500">{loading ? "Learning..." : memoryCount ? `${memoryCount} saved notes` : "Keep me updated"}</span>
             </span>
@@ -2422,14 +2422,14 @@ function EmptyState({ icon, title, body }: { icon: React.ReactNode; title: strin
 }
 
 function StatusPill({ label, active }: { label: string; active: boolean }) {
-  return <span className={`rounded px-3 py-2 text-center text-sm ${active ? "bg-jade/15 text-teal-200" : "bg-white/8 text-slate-400"}`}>{label}</span>;
+  return <span className={`rounded px-3 py-2 text-center text-sm ${active ? "bg-violet-100 text-violet-700" : "bg-white text-slate-500 border border-slate-200"}`}>{label}</span>;
 }
 
 function ConfigRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-white/10 bg-ink/55 p-3">
-      <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{label}</p>
-      <p className="mt-1 break-all font-mono text-xs text-slate-200">{value}</p>
+    <div className="rounded-md border border-slate-200 bg-white p-3">
+      <p className="text-[0.68rem] uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className="mt-1 break-all font-mono text-xs text-slate-700">{value}</p>
     </div>
   );
 }
