@@ -212,6 +212,41 @@ textarea {
   color: #211a2f !important;
 }
 
+.claude-shell .panel-hover[class*="bg-gradient-to-br"] {
+  background: rgba(255, 255, 255, 0.92) !important;
+}
+
+.claude-shell .panel-hover [class*="bg-gradient-to-br"]:not(.rounded-full) {
+  background: rgba(250, 247, 240, 0.94) !important;
+}
+
+.claude-shell .panel-hover [class*="bg-white/5"],
+.claude-shell .panel-hover [class*="bg-white/6"],
+.claude-shell .panel-hover [class*="bg-white/8"],
+.claude-shell .panel-hover [class*="bg-white/10"] {
+  background-color: rgba(250, 247, 240, 0.9) !important;
+}
+
+.claude-shell .panel-hover [class*="border-white/"] {
+  border-color: rgba(125, 112, 165, 0.18) !important;
+}
+
+.claude-shell .panel-hover [class*="rounded-lg"],
+.claude-shell .panel-hover [class*="rounded-md"] {
+  border-radius: 0.75rem !important;
+}
+
+.claude-shell .panel-hover > .grid,
+.claude-shell .panel-hover > .space-y-2,
+.claude-shell .panel-hover > .space-y-3,
+.claude-shell .panel-hover > .space-y-4 {
+  align-items: stretch;
+}
+
+.claude-shell .quest-card {
+  box-shadow: none !important;
+}
+
 .claude-shell [class*="border-white"] {
   border-color: rgba(125, 112, 165, 0.16) !important;
 }

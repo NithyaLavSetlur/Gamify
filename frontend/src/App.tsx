@@ -1738,7 +1738,7 @@ function SettingsPage({ state, refresh }: { state: DashboardState; refresh: () =
           <Button variant="ghost" onClick={async () => { await api.syncTickTick(); await refresh(); }}>Sync Fallback</Button>
         </div>
       </Panel>
-      <Panel>
+      <Panel className="lg:col-span-2">
         <PanelHeader title="Google Calendar" />
         <IntegrationStatusCard status={google} />
         <div className="mt-4 flex flex-wrap gap-2">
