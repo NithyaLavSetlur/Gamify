@@ -266,7 +266,7 @@ export default function App() {
         </div>
       </header>
 
-      <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-white/10 bg-midnight/90 p-4 backdrop-blur-xl lg:block">
+      <aside className="hidden">
         <div className="mb-5 rounded-lg border border-jade/20 bg-jade/8 p-4">
           <div className="flex items-center gap-3">
             <div className="grid h-12 w-12 place-items-center rounded-lg bg-jade text-ink shadow-glow">
@@ -299,7 +299,7 @@ export default function App() {
         </nav>
       </aside>
 
-      <main className="mx-auto max-w-6xl px-4 py-4 md:px-6 md:py-6 lg:pl-0">
+      <main className="mx-auto max-w-6xl px-3 py-3 md:px-6 md:py-6">
         <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 px-4 py-3 backdrop-blur md:hidden">
           <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
             <Select value={page} onChange={(event) => setPage(event.target.value as Page)}>
@@ -312,7 +312,7 @@ export default function App() {
           </div>
         </header>
 
-        <div className="mx-auto max-w-6xl px-3 py-4 md:px-4 md:py-5">
+        <div className="mx-auto max-w-6xl px-0 py-4 md:px-0 md:py-5">
           {error && <div className="mb-4 rounded-md border border-ember/40 bg-ember/10 p-3 text-sm text-orange-100">{error}</div>}
           <RankHero state={state} wording={wording} />
       <QuickLaunch state={state} nextQuest={nextQuest} setPage={setPage} refresh={refresh} wording={wording} />
@@ -338,14 +338,14 @@ export default function App() {
 function RankHero({ state, wording }: { state: DashboardState; wording: Record<string, string> }) {
   const profile = state.profile;
   return (
-    <section className="mb-6 grid gap-4 xl:grid-cols-[1.4fr_.6fr]">
+    <section className="mb-5 grid gap-4 xl:grid-cols-[1.45fr_.55fr]">
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-panel via-midnight to-ink p-4 shadow-glow"
+        className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-panel via-midnight to-ink p-4 shadow-glow sm:p-5"
       >
-        <div className="absolute right-[-6rem] top-[-8rem] h-72 w-72 rounded-full bg-jade/10 blur-3xl" />
-        <div className="absolute bottom-[-8rem] left-1/3 h-72 w-72 rounded-full bg-rune/12 blur-3xl" />
+        <div className="absolute right-[-3rem] top-[-5rem] hidden h-48 w-48 rounded-full bg-jade/10 blur-3xl sm:block" />
+        <div className="absolute bottom-[-6rem] left-1/3 hidden h-56 w-56 rounded-full bg-rune/12 blur-3xl sm:block" />
         <div className="soft-float absolute right-8 top-8 hidden h-24 w-24 rounded-full border border-gold/20 bg-gold/5 lg:block">
           <div className="absolute inset-4 rounded-full border border-jade/20" />
           <Sparkles className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-gold" size={24} />
@@ -355,7 +355,7 @@ function RankHero({ state, wording }: { state: DashboardState; wording: Record<s
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-gold">
               <Trophy size={14} /> Current Rank: {profile.rank_title}
             </div>
-            <h2 className="text-3xl font-black !text-white md:text-5xl">Level {profile.level} Study Run</h2>
+            <h2 className="text-2xl font-black !text-white sm:text-3xl md:text-4xl">Level {profile.level} Study Run</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[rgba(255,255,255,0.72)]">{state.quote.body}</p>
             <div className="mt-5 max-w-2xl">
               <div className="mb-2 flex justify-between text-sm text-[rgba(255,255,255,0.72)]">
@@ -373,7 +373,7 @@ function RankHero({ state, wording }: { state: DashboardState; wording: Record<s
           </div>
         </div>
       </motion.div>
-      <Panel className="bg-gradient-to-br from-panel2/90 to-midnight">
+      <Panel className="mission-panel bg-gradient-to-br from-panel2/90 to-midnight">
         <h3 className="mb-3 text-lg font-black text-white">{wording.mission}</h3>
         <div className="grid grid-cols-2 gap-3">
           <ProgressRing value={state.goals.daily_xp} max={state.goals.daily_goal} label="Daily XP" />
@@ -399,12 +399,12 @@ function QuickLaunch({ state, nextQuest, setPage, refresh, wording }: { state: D
   const [syncing, setSyncing] = useState(false);
   const todayPct = Math.min(100, Math.round((state.goals.daily_xp / Math.max(1, state.goals.daily_goal)) * 100));
   return (
-    <section className="mb-5 grid gap-3 lg:grid-cols-[1fr_auto_auto_auto]">
+    <section className="mb-5 grid grid-cols-3 gap-3 lg:grid-cols-[1fr_auto_auto_auto]">
       <motion.button
         whileHover={{ y: -2 }}
         whileTap={{ scale: 0.99 }}
         onClick={() => setPage("quests")}
-        className="group min-h-16 rounded-lg border border-jade/20 bg-gradient-to-br from-jade/12 to-ink/70 p-3.5 text-left shadow-glow transition hover:border-jade/45"
+        className="group col-span-3 min-h-16 rounded-lg border border-jade/20 bg-gradient-to-br from-jade/12 to-ink/70 p-3.5 text-left shadow-glow transition hover:border-jade/45 lg:col-span-1"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -441,10 +441,10 @@ function QuickButton({ icon, label, sub, onClick }: { icon: React.ReactNode; lab
       whileHover={{ y: -2 }}
       whileTap={{ scale: 0.98 }}
       onClick={() => void onClick()}
-      className="rounded-lg border border-white/10 bg-panel/70 px-3.5 py-3 text-left shadow-glow backdrop-blur transition hover:border-gold/30 hover:bg-white/8"
+      className="rounded-lg border border-white/10 bg-panel/70 px-3 py-2.5 text-left shadow-glow backdrop-blur transition hover:border-gold/30 hover:bg-white/8 sm:px-3.5 sm:py-3"
     >
-      <span className="mb-2 grid h-9 w-9 place-items-center rounded-md bg-white/8 text-gold">{icon}</span>
-      <span className="block text-lg font-black text-white">{label}</span>
+      <span className="mb-2 grid h-8 w-8 place-items-center rounded-md bg-white/8 text-gold sm:h-9 sm:w-9">{icon}</span>
+      <span className="block text-base font-black text-white sm:text-lg">{label}</span>
       <span className="text-xs text-slate-400">{sub}</span>
     </motion.button>
   );
@@ -1271,11 +1271,11 @@ function PomodoroTimer({ state, refresh, triggerReward }: { state: DashboardStat
         <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-jade via-gold to-rune" />
         <PanelHeader title="Pomodoro Board" action={<Badge tone={phase === "pomodoro" ? "easy" : "boss"}>{phaseLabelText}</Badge>} />
         <div className="grid gap-5">
-          <div className="mx-auto grid h-72 w-72 place-items-center rounded-full border border-white/10 bg-gradient-to-br from-panel via-midnight to-ink shadow-glow">
+          <div className="mx-auto grid h-56 w-56 place-items-center rounded-full border border-white/10 bg-gradient-to-br from-panel via-midnight to-ink shadow-glow sm:h-64 sm:w-64 lg:h-72 lg:w-72">
             <div className="text-center">
-              <Hourglass className="mx-auto mb-3 text-jade" size={28} />
-              <div className="text-7xl font-black tabular-nums text-white">{formatTime(seconds)}</div>
-              <p className="mt-2 text-sm uppercase tracking-[0.16em] text-slate-400">{phaseLabelText}</p>
+              <Hourglass className="mx-auto mb-3 text-jade" size={26} />
+              <div className="text-5xl font-black tabular-nums !text-white sm:text-6xl lg:text-7xl">{formatTime(seconds)}</div>
+              <p className="mt-2 text-xs uppercase tracking-[0.16em] text-slate-400 sm:text-sm">{phaseLabelText}</p>
             </div>
           </div>
 
@@ -2430,8 +2430,8 @@ function ProgressRing({ value, max, label }: { value: number; max: number; label
   const pct = Math.min(100, Math.round((value / Math.max(1, max)) * 100));
   return (
     <div className="text-center">
-      <div className="mx-auto grid h-[5.5rem] w-[5.5rem] place-items-center rounded-full" style={{ background: `conic-gradient(#2dd4bf ${pct * 3.6}deg, rgba(255,255,255,.08) 0deg)` }}>
-        <div className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-full bg-midnight">
+      <div className="mx-auto grid h-[5.25rem] w-[5.25rem] place-items-center rounded-full" style={{ background: `conic-gradient(#2dd4bf ${pct * 3.6}deg, rgba(139,124,246,.16) 0deg)` }}>
+        <div className="grid h-[4.25rem] w-[4.25rem] place-items-center rounded-full bg-white">
           <span className="text-base font-black text-white">{pct}%</span>
         </div>
       </div>
