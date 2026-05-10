@@ -163,7 +163,7 @@ export default function App() {
       </AnimatePresence>
 
       <header className="sticky top-0 z-30 hidden border-b border-slate-200/80 bg-white/85 backdrop-blur-xl md:block">
-        <div className="mx-auto max-w-6xl px-4 py-3 md:px-6">
+        <div className="mx-auto max-w-5xl px-4 py-3 md:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
               onClick={() => setNavOpen((value) => !value)}
@@ -195,7 +195,7 @@ export default function App() {
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                className="mt-3 overflow-hidden rounded-3xl border border-slate-200 bg-white/95 shadow-[0_20px_50px_rgba(71,61,104,0.12)]"
+                className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-[0_20px_50px_rgba(71,61,104,0.12)]"
               >
                 <div className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
                   {nav.map((item) => {
@@ -233,7 +233,7 @@ export default function App() {
       </header>
 
       <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-white/10 bg-midnight/90 p-4 backdrop-blur-xl lg:block">
-        <div className="mb-6 rounded-lg border border-jade/20 bg-jade/8 p-4">
+        <div className="mb-5 rounded-lg border border-jade/20 bg-jade/8 p-4">
           <div className="flex items-center gap-3">
             <div className="grid h-12 w-12 place-items-center rounded-lg bg-jade text-ink shadow-glow">
               <Shield />
@@ -265,14 +265,14 @@ export default function App() {
         </nav>
       </aside>
 
-      <main className="mx-auto max-w-6xl px-4 py-4 md:px-6 md:py-6 lg:pl-0">
+      <main className="mx-auto max-w-5xl px-4 py-4 md:px-6 md:py-6 lg:pl-0">
         <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 px-4 py-3 backdrop-blur md:hidden">
           <Select value={page} onChange={(event) => setPage(event.target.value as Page)}>
             {nav.map((item) => <option value={item.key} key={item.key}>{item.label}</option>)}
           </Select>
         </header>
 
-        <div className="mx-auto max-w-7xl px-4 py-5 md:py-7">
+        <div className="mx-auto max-w-5xl px-3 py-4 md:px-4 md:py-5">
           {error && <div className="mb-4 rounded-md border border-ember/40 bg-ember/10 p-3 text-sm text-orange-100">{error}</div>}
           <RankHero state={state} wording={wording} />
       <QuickLaunch state={state} nextQuest={nextQuest} setPage={setPage} refresh={refresh} wording={wording} />
@@ -302,7 +302,7 @@ function RankHero({ state, wording }: { state: DashboardState; wording: Record<s
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br from-panel via-midnight to-ink p-5 shadow-glow"
+        className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-panel via-midnight to-ink p-4 shadow-glow"
       >
         <div className="absolute right-[-6rem] top-[-8rem] h-72 w-72 rounded-full bg-jade/10 blur-3xl" />
         <div className="absolute bottom-[-8rem] left-1/3 h-72 w-72 rounded-full bg-rune/12 blur-3xl" />
@@ -315,7 +315,7 @@ function RankHero({ state, wording }: { state: DashboardState; wording: Record<s
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-gold">
               <Trophy size={14} /> Current Rank: {profile.rank_title}
             </div>
-            <h2 className="text-4xl font-black text-white md:text-6xl">Level {profile.level} Study Run</h2>
+            <h2 className="text-3xl font-black text-white md:text-5xl">Level {profile.level} Study Run</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">{state.quote.body}</p>
             <div className="mt-5 max-w-2xl">
               <div className="mb-2 flex justify-between text-sm text-slate-300">
@@ -325,7 +325,7 @@ function RankHero({ state, wording }: { state: DashboardState; wording: Record<s
               <Progress value={profile.xp_into_level} max={profile.xp_for_next_level} tone="gold" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-2">
             <MiniStat icon={<Flame className="flame-flicker text-ember" />} label={wording.streak} value={`${profile.current_streak}d`} />
             <MiniStat icon={<Zap className="text-gold" />} label="Combo" value={`${profile.combo_count}x`} />
             <MiniStat icon={<Snowflake className="text-cyan-200" />} label="Freeze" value={profile.streak_freezes.toString()} />
@@ -359,18 +359,18 @@ function QuickLaunch({ state, nextQuest, setPage, refresh, wording }: { state: D
   const [syncing, setSyncing] = useState(false);
   const todayPct = Math.min(100, Math.round((state.goals.daily_xp / Math.max(1, state.goals.daily_goal)) * 100));
   return (
-    <section className="mb-6 grid gap-3 lg:grid-cols-[1fr_auto_auto_auto]">
+    <section className="mb-5 grid gap-3 lg:grid-cols-[1fr_auto_auto_auto]">
       <motion.button
         whileHover={{ y: -2 }}
         whileTap={{ scale: 0.99 }}
         onClick={() => setPage("quests")}
-        className="group min-h-20 rounded-lg border border-jade/20 bg-gradient-to-br from-jade/12 to-ink/70 p-4 text-left shadow-glow transition hover:border-jade/45"
+        className="group min-h-16 rounded-lg border border-jade/20 bg-gradient-to-br from-jade/12 to-ink/70 p-3.5 text-left shadow-glow transition hover:border-jade/45"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-jade">Next move</p>
-            <h3 className="mt-1 line-clamp-1 text-lg font-black text-white">{nextQuest?.title ?? "Create a focused quest"}</h3>
-            <p className="mt-1 text-sm text-slate-400">{nextQuest ? `${nextQuest.subject} - ${nextQuest.xp_reward} XP` : `${wording.focus} starts with one clear action.`}</p>
+            <h3 className="mt-1 line-clamp-1 text-base font-black text-white">{nextQuest?.title ?? "Create a focused quest"}</h3>
+            <p className="mt-1 text-xs text-slate-400">{nextQuest ? `${nextQuest.subject} - ${nextQuest.xp_reward} XP` : `${wording.focus} starts with one clear action.`}</p>
           </div>
           <Target className="text-jade transition group-hover:scale-110" />
         </div>
@@ -401,7 +401,7 @@ function QuickButton({ icon, label, sub, onClick }: { icon: React.ReactNode; lab
       whileHover={{ y: -2 }}
       whileTap={{ scale: 0.98 }}
       onClick={() => void onClick()}
-      className="rounded-lg border border-white/10 bg-panel/70 px-4 py-3 text-left shadow-glow backdrop-blur transition hover:border-gold/30 hover:bg-white/8"
+      className="rounded-lg border border-white/10 bg-panel/70 px-3.5 py-3 text-left shadow-glow backdrop-blur transition hover:border-gold/30 hover:bg-white/8"
     >
       <span className="mb-2 grid h-9 w-9 place-items-center rounded-md bg-white/8 text-gold">{icon}</span>
       <span className="block text-lg font-black text-white">{label}</span>
@@ -415,7 +415,7 @@ function Dashboard({ state, refresh, completeWithReward, wording }: { state: Das
   const connectedCount = Number(state.integrations.ticktick.connected) + Number(state.integrations.google_calendar.connected);
   const nextQuest = selectNextQuest(state.quests);
   return (
-    <div className="grid gap-4 xl:grid-cols-[1.2fr_.8fr]">
+    <div className="grid gap-4 xl:grid-cols-[1.15fr_.85fr]">
       <Panel className="xl:row-span-2">
         <PanelHeader title={`${wording.quests} Board`} action={<DashboardActions refresh={refresh} />} />
         <NextActionCard quest={nextQuest} completeWithReward={completeWithReward} />
@@ -423,12 +423,12 @@ function Dashboard({ state, refresh, completeWithReward, wording }: { state: Das
       </Panel>
       <Panel>
         <PanelHeader title="Integration Intel" />
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-2.5 sm:grid-cols-3">
           <MiniStat icon={<Import className="text-jade" />} label="Connected feeds" value={`${connectedCount}/2`} />
           <MiniStat icon={<ListChecks className="text-gold" />} label="Imported quests" value={state.quests.filter((q) => q.external_source).length.toString()} />
           <MiniStat icon={<CalendarDays className="text-rune" />} label="Study events" value={state.events.filter((event) => event.is_study_block).length.toString()} />
         </div>
-        <p className="mt-3 text-sm text-slate-400">Sync turns TickTick priorities into quest difficulty and Calendar study/exam events into focus quests or boss fights.</p>
+        <p className="mt-3 text-xs text-slate-400">Sync turns TickTick priorities into quest difficulty and Calendar study/exam events into focus quests or boss fights.</p>
       </Panel>
       <Panel>
         <PanelHeader title="Calendar Timeline" />
@@ -2251,27 +2251,30 @@ function AssistantBubbleV2() {
   const workflowHints = state?.summary.workflow_hints ?? [];
   const subjects = state?.summary.subject_focus ?? [];
   const windows = state?.summary.study_windows ?? [];
+  const topics = state?.summary.topics ?? [];
+  const constraints = state?.summary.constraints ?? [];
 
   return (
     <div className="fixed bottom-4 right-4 z-[60]">
-      <AnimatePresence>
-        {open && (
+      <AnimatePresence mode="wait">
+        {open ? (
           <motion.div
-            initial={{ opacity: 0, y: 16, scale: 0.96 }}
+            key="assistant-panel"
+            initial={{ opacity: 0, y: 16, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12, scale: 0.97 }}
-            transition={{ type: "spring", stiffness: 260, damping: 24 }}
-            className="mb-3 w-[min(92vw,24rem)] overflow-hidden rounded-3xl border border-slate-200 bg-white/95 shadow-[0_24px_70px_rgba(71,61,104,0.14)] backdrop-blur-xl"
+            exit={{ opacity: 0, y: 12, scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 250, damping: 24 }}
+            className="w-[min(92vw,22rem)] overflow-hidden rounded-xl border border-slate-200 bg-white/96 shadow-[0_24px_70px_rgba(71,61,104,0.14)] backdrop-blur-xl"
           >
-            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-4">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-violet-500 shadow-[0_0_0_4px_rgba(139,124,246,0.12)]" />
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Context AI</p>
+                  <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-500">Context AI</p>
                 </div>
-                <h3 className="mt-1 text-sm font-black text-slate-900">I learn from whatever you tell me</h3>
+                <h3 className="mt-1 text-sm font-black text-slate-900">Tell me what matters</h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  {loading ? "Learning your workspace..." : `${memoryCount} saved notes. I use them to sort tasks, windows, and priorities.`}
+                  {loading ? "Learning your workspace..." : `${memoryCount} saved notes. I use them to sort tasks and timing.`}
                 </p>
               </div>
               <button
@@ -2281,22 +2284,24 @@ function AssistantBubbleV2() {
                 <X size={16} />
               </button>
             </div>
-            <div className="space-y-3 px-4 py-4">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+
+            <div className="space-y-3 px-4 py-3">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
                 <div className="flex flex-wrap gap-2">
                   {subjects.slice(0, 3).map((item) => <span key={item} className="rounded-full bg-violet-100 px-2 py-1 text-violet-700">{item}</span>)}
                   {windows.slice(0, 3).map((item) => <span key={item} className="rounded-full bg-slate-200 px-2 py-1 text-slate-700">{item}</span>)}
                   {workflowHints.slice(0, 3).map((item) => <span key={item} className="rounded-full bg-amber-100 px-2 py-1 text-amber-800">{item.replace(/_/g, " ")}</span>)}
+                  {topics.slice(0, 2).map((item) => <span key={item} className="rounded-full bg-purple-100 px-2 py-1 text-purple-700">{item}</span>)}
+                  {constraints.slice(0, 2).map((item) => <span key={item} className="rounded-full bg-rose-100 px-2 py-1 text-rose-700">{item.length > 18 ? `${item.slice(0, 18)}…` : item}</span>)}
                 </div>
-                <p className="mt-2">
-                  I adapt the workflow engine from your notes, calendar, and TickTick so the app can sort what matters first.
-                </p>
+                <p className="mt-2">I adapt the workflow engine from your notes, calendar, and TickTick.</p>
               </div>
+
               <div ref={scrollRef} className="max-h-72 space-y-2 overflow-y-auto pr-1">
                 {state?.messages.length ? state.messages.map((message) => (
                   <div
                     key={`${message.role}-${message.id}`}
-                    className={`max-w-[88%] rounded-2xl px-3 py-2.5 text-sm leading-6 ${
+                    className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm leading-5 ${
                       message.role === "assistant"
                         ? "border border-slate-200 bg-white text-slate-700"
                         : "ml-auto border border-violet-200 bg-violet-600 text-white"
@@ -2305,12 +2310,12 @@ function AssistantBubbleV2() {
                     {message.content}
                   </div>
                 )) : (
-                  <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
-                    Tell me anything about subjects, timing, deadlines, task order, or tone. I'll turn it into context.
+                  <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                    Tell me about subjects, timing, deadlines, task order, or tone.
                   </p>
                 )}
                 {sending && (
-                  <div className="max-w-[72%] rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-500">
+                  <div className="max-w-[72%] rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500">
                     <span className="inline-flex items-center gap-1.5">
                       <span className="h-2 w-2 animate-pulse rounded-full bg-violet-500" />
                       Thinking
@@ -2323,13 +2328,16 @@ function AssistantBubbleV2() {
                   </div>
                 )}
               </div>
+
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => quickSend("I study best at night and want my tasks grouped by due date.")} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 transition hover:border-violet-200 hover:text-slate-900">Night focus</button>
                 <button onClick={() => quickSend("My strongest subject is math and I want harder tasks prioritised there.")} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 transition hover:border-violet-200 hover:text-slate-900">Math priority</button>
                 <button onClick={() => quickSend("Use 50 minute focus blocks for deep work.")} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 transition hover:border-violet-200 hover:text-slate-900">50 min blocks</button>
                 <button onClick={() => quickSend("Keep the workflow minimal and sort tasks by due date across the next 7 days.")} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 transition hover:border-violet-200 hover:text-slate-900">Next 7 days</button>
               </div>
-              {followUp ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">{followUp}</div> : null}
+
+              {followUp ? <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">{followUp}</div> : null}
+
               <div className="flex gap-2">
                 <textarea
                   ref={draftRef}
@@ -2341,35 +2349,39 @@ function AssistantBubbleV2() {
                       void send(draft);
                     }
                   }}
-                  placeholder="Tell me anything about your study setup..."
+                  placeholder="Tell me what to remember..."
                   rows={1}
-                  className="min-h-11 max-h-36 flex-1 resize-none rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-300 focus:shadow-[0_0_0_4px_rgba(139,124,246,0.08)]"
+                  className="min-h-11 max-h-36 flex-1 resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-[0.92rem] leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-300 focus:shadow-[0_0_0_4px_rgba(139,124,246,0.08)]"
                 />
-                <Button onClick={() => void send(draft)} disabled={sending} className="shrink-0 rounded-2xl">
+                <Button onClick={() => void send(draft)} disabled={sending} className="shrink-0 rounded-lg">
                   <Send size={16} />
                 </Button>
               </div>
             </div>
           </motion.div>
+        ) : (
+          <motion.button
+            key="assistant-bubble"
+            initial={{ opacity: 0, y: 8, scale: 0.96 }}
+            animate={{ opacity: 1, y: [0, -2, 0], scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.96 }}
+            transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setOpen(true)}
+            className="group flex items-center gap-3 rounded-full border border-slate-200 bg-white/95 px-4 py-3 text-left shadow-[0_18px_50px_rgba(71,61,104,0.12)] backdrop-blur-xl transition hover:border-violet-300 hover:shadow-[0_24px_60px_rgba(109,87,230,0.16)]"
+          >
+            <span className="relative grid h-10 w-10 place-items-center rounded-full bg-violet-600 text-white">
+              <MessageCircle size={18} />
+              <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-400" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-black text-slate-900">Context AI</span>
+              <span className="block text-xs text-slate-500">{loading ? "Learning..." : memoryCount ? `${memoryCount} saved notes` : "Keep me updated"}</span>
+            </span>
+          </motion.button>
         )}
       </AnimatePresence>
-      <motion.button
-        animate={{ y: open ? 0 : [0, -2, 0] }}
-        transition={{ duration: 2.8, repeat: open ? 0 : Infinity, ease: "easeInOut" }}
-        whileHover={{ scale: 1.03 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={() => setOpen((value) => !value)}
-        className="group flex items-center gap-3 rounded-full border border-slate-200 bg-white/95 px-4 py-3 text-left shadow-[0_18px_50px_rgba(71,61,104,0.12)] backdrop-blur-xl transition hover:border-violet-300 hover:shadow-[0_24px_60px_rgba(109,87,230,0.16)]"
-      >
-        <span className="relative grid h-10 w-10 place-items-center rounded-full bg-violet-600 text-white">
-          <MessageCircle size={18} />
-          <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-400" />
-        </span>
-        <span className="min-w-0">
-          <span className="block text-sm font-black text-slate-900">Context AI</span>
-          <span className="block text-xs text-slate-500">{loading ? "Learning..." : memoryCount ? `${memoryCount} saved notes` : "Keep me updated"}</span>
-        </span>
-      </motion.button>
     </div>
   );
 }
@@ -2378,9 +2390,9 @@ function ProgressRing({ value, max, label }: { value: number; max: number; label
   const pct = Math.min(100, Math.round((value / Math.max(1, max)) * 100));
   return (
     <div className="text-center">
-      <div className="mx-auto grid h-24 w-24 place-items-center rounded-full" style={{ background: `conic-gradient(#2dd4bf ${pct * 3.6}deg, rgba(255,255,255,.08) 0deg)` }}>
-        <div className="grid h-20 w-20 place-items-center rounded-full bg-midnight">
-          <span className="text-lg font-black text-white">{pct}%</span>
+      <div className="mx-auto grid h-[5.5rem] w-[5.5rem] place-items-center rounded-full" style={{ background: `conic-gradient(#2dd4bf ${pct * 3.6}deg, rgba(255,255,255,.08) 0deg)` }}>
+        <div className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-full bg-midnight">
+          <span className="text-base font-black text-white">{pct}%</span>
         </div>
       </div>
       <p className="mt-2 text-xs font-bold text-slate-300">{label}</p>
@@ -2394,14 +2406,14 @@ function MiniStat({ icon, label, value }: { icon: React.ReactNode; label: string
     <motion.div whileHover={{ y: -2 }} className="rounded-lg border border-white/10 bg-ink/60 p-3">
       <div className="mb-2">{icon}</div>
       <p className="text-xs text-slate-400">{label}</p>
-      <p className="text-2xl font-black text-white">{value}</p>
+      <p className="text-xl font-black text-white">{value}</p>
     </motion.div>
   );
 }
 
 function EmptyState({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
-    <div className="rounded-lg border border-dashed border-white/15 bg-white/5 p-5 text-center">
+    <div className="rounded-lg border border-dashed border-white/15 bg-white/5 p-4 text-center">
       <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-md bg-jade/10 text-jade">{icon}</div>
       <h3 className="font-black text-white">{title}</h3>
       <p className="mt-1 text-sm text-slate-400">{body}</p>
@@ -2436,7 +2448,7 @@ function Badge({ tone, children }: { tone: string; children: React.ReactNode }) 
 function PanelHeader({ title, action }: { title: string; action?: React.ReactNode }) {
   return (
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <h2 className="text-xl font-black text-white">{title}</h2>
+      <h2 className="text-lg font-black text-white">{title}</h2>
       {action}
     </div>
   );
