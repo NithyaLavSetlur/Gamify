@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from collections import Counter
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -31,6 +31,102 @@ KEYWORD_HINTS = {
     "50": ("timer_preference", "50"),
 }
 
+WORKFLOW_HINTS = {
+    "next 7 days": ("workflow_hint", "organize_by_due_date"),
+    "next week": ("workflow_hint", "organize_by_due_date"),
+    "due date": ("workflow_hint", "prioritize_due_dates"),
+    "sort by date": ("workflow_hint", "prioritize_due_dates"),
+    "sorted by due date": ("workflow_hint", "prioritize_due_dates"),
+    "group by project": ("workflow_hint", "group_by_project"),
+    "group by subject": ("workflow_hint", "group_by_subject"),
+    "calendar first": ("workflow_hint", "calendar_first"),
+    "tasks first": ("workflow_hint", "tasks_first"),
+    "one at a time": ("workflow_hint", "avoid_overload"),
+    "less clutter": ("workflow_hint", "avoid_overload"),
+    "no overload": ("workflow_hint", "avoid_overload"),
+    "short sessions": ("workflow_hint", "prefer_short_sessions"),
+    "quick blocks": ("workflow_hint", "prefer_short_sessions"),
+    "deep work": ("workflow_hint", "prefer_deep_work"),
+    "calm": ("tone", "calm"),
+    "minimal": ("tone", "minimal"),
+    "structured": ("tone", "structured"),
+    "strict": ("tone", "structured"),
+    "ticktick": ("integration_focus", "ticktick"),
+    "calendar": ("integration_focus", "calendar"),
+}
+
+TIME_WINDOW_HINTS = {
+    "after school": "after_school",
+    "after work": "after_work",
+    "before class": "before_class",
+    "during lunch": "lunch",
+    "weekdays": "weekdays",
+    "weekends": "weekends",
+}
+
+STOPWORDS = {
+    "the",
+    "and",
+    "for",
+    "with",
+    "that",
+    "this",
+    "from",
+    "have",
+    "will",
+    "want",
+    "need",
+    "what",
+    "when",
+    "where",
+    "why",
+    "how",
+    "about",
+    "into",
+    "your",
+    "you",
+    "are",
+    "was",
+    "were",
+    "i",
+    "me",
+    "my",
+    "we",
+    "our",
+    "they",
+    "them",
+    "a",
+    "an",
+    "to",
+    "of",
+    "in",
+    "on",
+    "at",
+    "by",
+    "be",
+    "is",
+    "it",
+    "as",
+    "or",
+    "not",
+    "do",
+    "dont",
+    "don't",
+    "please",
+    "make",
+    "use",
+    "should",
+    "could",
+    "would",
+    "some",
+    "more",
+    "less",
+    "just",
+    "really",
+    "basically",
+    "whatever",
+}
+
 
 def load_assistant_state(db: Session) -> dict[str, Any]:
     messages = db.query(AssistantMessage).order_by(AssistantMessage.created_at.desc()).limit(24).all()
@@ -43,7 +139,7 @@ def load_assistant_state(db: Session) -> dict[str, Any]:
 
 
 def process_message(db: Session, message: str) -> dict[str, Any]:
-    cleaned = message.strip()
+    cleaned = normalize_text(message)
     user_message = AssistantMessage(role="user", content=cleaned)
     db.add(user_message)
     db.commit()
@@ -76,8 +172,12 @@ def process_message(db: Session, message: str) -> dict[str, Any]:
 
 
 def extract_memories(text: str) -> dict[str, list[dict[str, Any]]]:
-    lower = text.lower()
+    cleaned = normalize_text(text)
+    lower = cleaned.lower()
     memories: list[dict[str, Any]] = []
+
+    if cleaned:
+        memories.append({"category": "raw_note", "key": "message", "value": cleaned, "weight": 1})
 
     explicit_patterns = [
         (r"\bmy name is ([^.!,\n]+)", "profile", "name", 3),
@@ -90,25 +190,63 @@ def extract_memories(text: str) -> dict[str, list[dict[str, Any]]]:
         (r"\bmy exam is ([^.!,\n]+)", "deadline_focus", "exam_date", 4),
         (r"\buse (\d{1,3}) minute blocks\b", "timer_preference", "work_minutes", 4),
         (r"\bi like (\d{1,3}) minute pomodoros\b", "timer_preference", "work_minutes", 4),
+        (r"\bi prefer ([^.!,\n]+) sessions\b", "preference", "session_style", 3),
+        (r"\bi want ([^.!,\n]+) to be prioritized\b", "preference", "priority_rule", 3),
     ]
 
     for pattern, category, key, weight in explicit_patterns:
         match = re.search(pattern, lower, flags=re.IGNORECASE)
         if match:
-            value = match.group(1).strip()
-            memories.append({"category": category, "key": key, "value": value, "weight": weight})
+            value = normalize_phrase(match.group(1))
+            if value:
+                memories.append({"category": category, "key": key, "value": value, "weight": weight})
 
     for keyword, (category, value) in KEYWORD_HINTS.items():
         if keyword in lower:
             memories.append({"category": category, "key": keyword, "value": value, "weight": 1})
 
-    if "don't suggest" in lower or "do not suggest" in lower:
-        memories.append({"category": "preference", "key": "avoid_suggestion", "value": text.strip(), "weight": 2})
+    for keyword, (category, value) in WORKFLOW_HINTS.items():
+        if keyword in lower:
+            memories.append({"category": category, "key": keyword, "value": value, "weight": 2})
 
-    if "remember" in lower and not memories:
-        memories.append({"category": "note", "key": "general_note", "value": text.strip(), "weight": 1})
+    for keyword, value in TIME_WINDOW_HINTS.items():
+        if keyword in lower:
+            memories.append({"category": "study_window", "key": keyword, "value": value, "weight": 2})
+
+    if any(phrase in lower for phrase in ("don't suggest", "do not suggest", "avoid", "never", "no ", "not ")):
+        memories.append({"category": "constraint", "key": "negative_preference", "value": cleaned, "weight": 2})
+
+    memories.extend(extract_topics(cleaned))
+
+    if "remember" in lower and len(memories) == 1:
+        memories.append({"category": "note", "key": "general_note", "value": cleaned, "weight": 1})
 
     return {"memories": dedupe_memories(memories)}
+
+
+def extract_topics(text: str) -> list[dict[str, Any]]:
+    words = re.findall(r"[a-zA-Z][a-zA-Z0-9'\-]{2,}", text.lower())
+    filtered = [word for word in words if word not in STOPWORDS and not word.isdigit()]
+    if not filtered:
+        return []
+
+    counts = Counter(filtered)
+    common = counts.most_common(6)
+    topics: list[dict[str, Any]] = []
+    for word, weight in common:
+        if len(word) < 4 and word not in {"ai", "ux", "api"}:
+            continue
+        topics.append({"category": "topic", "key": word, "value": word, "weight": max(1, min(3, weight))})
+
+    phrase_hits = [
+        phrase.strip()
+        for phrase in re.findall(r"(?:about|for|with|on|regarding|around|focus on|prioritize|prioritise)\s+([^.!,;\n]+)", text, flags=re.IGNORECASE)
+    ]
+    for phrase in phrase_hits:
+        normalized = normalize_phrase(phrase)
+        if normalized and len(normalized.split()) <= 5:
+            topics.append({"category": "context_phrase", "key": normalized, "value": normalized, "weight": 2})
+    return dedupe_memories(topics)
 
 
 def dedupe_memories(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -147,8 +285,8 @@ def acknowledgement(memories: list[dict[str, Any]], message: str) -> str:
         return "ok understood!"
     summary = brief_memory_summary(memories)
     if summary:
-        return f"ok understood! I’ll use {summary} when I analyse your study workflow."
-    return "ok understood!"
+        return f"ok understood! I'll use {summary} when I analyse your study workflow."
+    return "ok understood! I'll use that context when I analyse your study workflow."
 
 
 def pick_follow_up_question(message: str, memories: list[dict[str, Any]]) -> str | None:
@@ -156,17 +294,20 @@ def pick_follow_up_question(message: str, memories: list[dict[str, Any]]) -> str
     has_subject = any(item["category"] == "subject_focus" for item in memories)
     has_window = any(item["category"] == "study_window" for item in memories)
     has_timer = any(item["category"] == "timer_preference" for item in memories)
+    has_workflow_hint = any(item["category"] == "workflow_hint" for item in memories)
 
     if ("exam" in lower or "test" in lower) and not has_subject:
         return "Which subject or exam should I prioritize first?"
-    if ("study" in lower or "workflow" in lower or "schedule" in lower) and not has_window:
+    if ("study" in lower or "workflow" in lower or "schedule" in lower or "time" in lower) and not has_window:
         return "What time of day do you usually focus best?"
     if ("pomodoro" in lower or "timer" in lower) and not has_timer:
         return "What timer length do you want me to treat as your default?"
+    if ("sort" in lower or "group" in lower or "prioritize" in lower) and not has_workflow_hint:
+        return "Should I sort your workflow by due date, subject, or project?"
     if "more context" in lower or "remember" in lower:
         return None
-    if not memories and len(lower.split()) < 5:
-        return "Can you tell me a bit more about what should matter most?"
+    if not memories and len(lower.split()) < 8:
+        return "What should I pay most attention to: subjects, timing, task order, or tone?"
     return None
 
 
@@ -177,16 +318,51 @@ def summarize_memories(memories: list[AssistantMemory]) -> dict[str, Any]:
         "subject_focus": [],
         "timer_preference": None,
         "preferences": [],
+        "constraints": [],
+        "workflow_hints": [],
+        "topics": [],
+        "recent_notes": [],
+        "tone": None,
+        "context_map": {
+            "study_windows": [],
+            "subject_focus": [],
+            "workflow_hints": [],
+            "preferences": [],
+            "constraints": [],
+            "topics": [],
+            "recent_notes": [],
+            "tone": None,
+        },
     }
     for memory in memories:
         if memory.category == "study_window":
             summary["study_windows"].append(memory.value)
+            summary["context_map"]["study_windows"].append(memory.value)
         elif memory.category == "subject_focus":
             summary["subject_focus"].append(memory.value)
+            summary["context_map"]["subject_focus"].append(memory.value)
         elif memory.category == "timer_preference" and summary["timer_preference"] is None:
             summary["timer_preference"] = memory.value
+        elif memory.category == "workflow_hint":
+            summary["workflow_hints"].append(memory.value)
+            summary["context_map"]["workflow_hints"].append(memory.value)
+        elif memory.category == "constraint":
+            summary["constraints"].append(memory.value)
+            summary["context_map"]["constraints"].append(memory.value)
+        elif memory.category in {"topic", "context_phrase"}:
+            summary["topics"].append(memory.value)
+            summary["context_map"]["topics"].append(memory.value)
+        elif memory.category == "tone":
+            if summary["tone"] is None:
+                summary["tone"] = memory.value
+                summary["context_map"]["tone"] = memory.value
+        elif memory.category == "raw_note":
+            if len(summary["recent_notes"]) < 5:
+                summary["recent_notes"].append(memory.value)
+                summary["context_map"]["recent_notes"].append(memory.value)
         else:
             summary["preferences"].append(memory.value)
+            summary["context_map"]["preferences"].append(memory.value)
     return summary
 
 
@@ -199,8 +375,12 @@ def brief_memory_summary(memories: list[dict[str, Any]]) -> str:
             parts.append(f"{item['value']} focus")
         elif item["category"] == "timer_preference":
             parts.append(f"{item['value']} minute blocks")
-        else:
-            parts.append(str(item["value"]))
+        elif item["category"] == "workflow_hint":
+            parts.append(str(item["value"]).replace("_", " "))
+        elif item["category"] == "constraint":
+            parts.append("your constraints")
+        elif item["category"] == "tone":
+            parts.append(f"{item['value']} tone")
     return ", ".join(parts)
 
 
@@ -208,3 +388,12 @@ def memory_context_notes(db: Session) -> dict[str, Any]:
     memories = db.query(AssistantMemory).order_by(AssistantMemory.weight.desc(), AssistantMemory.updated_at.desc()).all()
     return summarize_memories(memories)
 
+
+def normalize_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text or "").strip()
+
+
+def normalize_phrase(text: str) -> str:
+    phrase = normalize_text(text.lower())
+    phrase = re.sub(r"[^a-z0-9\s'\-]", "", phrase)
+    return phrase.strip()

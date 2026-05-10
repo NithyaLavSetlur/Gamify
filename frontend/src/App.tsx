@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -141,7 +141,7 @@ export default function App() {
     <div className="min-h-screen overflow-x-hidden text-slate-100">
       <AmbientBackdrop />
       <RewardBurst seed={rewardBurst} />
-      <AssistantBubble />
+      <AssistantBubbleV2 />
       <AnimatePresence>
         {levelFlash && (
           <motion.div
@@ -2130,6 +2130,201 @@ function AssistantBubble() {
         <span>
           <span className="block text-sm font-black text-white">Context AI</span>
           <span className="text-xs text-slate-400">{state?.summary.total_memories ? `${state.summary.total_memories} saved notes` : "Keep me updated"}</span>
+        </span>
+      </motion.button>
+    </div>
+  );
+}
+
+function AssistantBubbleV2() {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [followUp, setFollowUp] = useState<string | null>(null);
+  const [state, setState] = useState<AssistantState | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      setState(await api.assistantState());
+    } catch {
+      setState(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+    const handler = () => void load();
+    window.addEventListener("workflow-context-updated", handler);
+    return () => window.removeEventListener("workflow-context-updated", handler);
+  }, []);
+
+  useEffect(() => {
+    if (open && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [open, state?.messages.length]);
+
+  const send = async (message: string) => {
+    const trimmed = message.trim();
+    if (!trimmed || sending) return;
+    setSending(true);
+    try {
+      const response = await api.sendAssistantMessage({ message: trimmed });
+      setFollowUp(response.needs_follow_up ? response.follow_up_question : null);
+      setState((previous) => {
+        const userMessage: AssistantMessage = {
+          id: Date.now(),
+          role: "user",
+          content: trimmed,
+          created_at: new Date().toISOString()
+        };
+        const addedMemories = response.memories_added.map((memory, index) => ({
+          id: Date.now() + index + 1,
+          category: memory.category,
+          key: memory.key,
+          value: memory.value,
+          weight: memory.weight,
+          created_at: new Date().toISOString()
+        }));
+        const nextMessages = previous ? [...previous.messages, userMessage, response.message] : [userMessage, response.message];
+        return {
+          messages: nextMessages,
+          memories: previous ? [...previous.memories, ...addedMemories] : addedMemories,
+          summary: response.summary
+        };
+      });
+      setDraft("");
+      window.dispatchEvent(new Event("workflow-context-updated"));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const quickSend = (value: string) => void send(value);
+  const memoryCount = state?.summary.total_memories ?? 0;
+  const workflowHints = state?.summary.workflow_hints ?? [];
+  const subjects = state?.summary.subject_focus ?? [];
+  const windows = state?.summary.study_windows ?? [];
+
+  return (
+    <div className="fixed bottom-4 right-4 z-[60]">
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 16, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 260, damping: 24 }}
+            className="mb-3 w-[min(92vw,24rem)] overflow-hidden rounded-3xl border border-slate-200 bg-white/95 shadow-[0_24px_70px_rgba(71,61,104,0.14)] backdrop-blur-xl"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-violet-500 shadow-[0_0_0_4px_rgba(139,124,246,0.12)]" />
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Context AI</p>
+                </div>
+                <h3 className="mt-1 text-sm font-black text-slate-900">I learn from whatever you tell me</h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  {loading ? "Learning your workspace..." : `${memoryCount} saved notes. I use them to sort tasks, windows, and priorities.`}
+                </p>
+              </div>
+              <button
+                onClick={() => setOpen(false)}
+                className="rounded-full border border-slate-200 bg-white p-2 text-slate-500 transition hover:border-violet-200 hover:text-slate-900"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="space-y-3 px-4 py-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                <div className="flex flex-wrap gap-2">
+                  {subjects.slice(0, 3).map((item) => <span key={item} className="rounded-full bg-violet-100 px-2 py-1 text-violet-700">{item}</span>)}
+                  {windows.slice(0, 3).map((item) => <span key={item} className="rounded-full bg-slate-200 px-2 py-1 text-slate-700">{item}</span>)}
+                  {workflowHints.slice(0, 3).map((item) => <span key={item} className="rounded-full bg-amber-100 px-2 py-1 text-amber-800">{item.replace(/_/g, " ")}</span>)}
+                </div>
+                <p className="mt-2">
+                  I adapt the workflow engine from your notes, calendar, and TickTick so the app can sort what matters first.
+                </p>
+              </div>
+              <div ref={scrollRef} className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                {state?.messages.length ? state.messages.map((message) => (
+                  <div
+                    key={`${message.role}-${message.id}`}
+                    className={`max-w-[88%] rounded-2xl px-3 py-2.5 text-sm leading-6 ${
+                      message.role === "assistant"
+                        ? "border border-slate-200 bg-white text-slate-700"
+                        : "ml-auto border border-violet-200 bg-violet-600 text-white"
+                    }`}
+                  >
+                    {message.content}
+                  </div>
+                )) : (
+                  <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                    Tell me anything about subjects, timing, deadlines, task order, or tone. I'll turn it into context.
+                  </p>
+                )}
+                {sending && (
+                  <div className="max-w-[72%] rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-500">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-violet-500" />
+                      Thinking
+                      <span className="inline-flex gap-1">
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.2s]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.1s]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" />
+                      </span>
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => quickSend("I study best at night and want my tasks grouped by due date.")} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 transition hover:border-violet-200 hover:text-slate-900">Night focus</button>
+                <button onClick={() => quickSend("My strongest subject is math and I want harder tasks prioritised there.")} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 transition hover:border-violet-200 hover:text-slate-900">Math priority</button>
+                <button onClick={() => quickSend("Use 50 minute focus blocks for deep work.")} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 transition hover:border-violet-200 hover:text-slate-900">50 min blocks</button>
+                <button onClick={() => quickSend("Keep the workflow minimal and sort tasks by due date across the next 7 days.")} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 transition hover:border-violet-200 hover:text-slate-900">Next 7 days</button>
+              </div>
+              {followUp ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">{followUp}</div> : null}
+              <div className="flex gap-2">
+                <input
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void send(draft);
+                    }
+                  }}
+                  placeholder="Tell me anything about your study setup..."
+                  className="min-h-11 flex-1 rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-300 focus:shadow-[0_0_0_4px_rgba(139,124,246,0.08)]"
+                />
+                <Button onClick={() => void send(draft)} disabled={sending} className="shrink-0">
+                  <Send size={16} />
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <motion.button
+        animate={{ y: open ? 0 : [0, -2, 0] }}
+        transition={{ duration: 2.8, repeat: open ? 0 : Infinity, ease: "easeInOut" }}
+        whileHover={{ scale: 1.03 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => setOpen((value) => !value)}
+        className="group flex items-center gap-3 rounded-full border border-slate-200 bg-white/95 px-4 py-3 text-left shadow-[0_18px_50px_rgba(71,61,104,0.12)] backdrop-blur-xl transition hover:border-violet-300 hover:shadow-[0_24px_60px_rgba(109,87,230,0.16)]"
+      >
+        <span className="relative grid h-10 w-10 place-items-center rounded-full bg-violet-600 text-white">
+          <MessageCircle size={18} />
+          <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-400" />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-black text-slate-900">Context AI</span>
+          <span className="block text-xs text-slate-500">{loading ? "Learning..." : memoryCount ? `${memoryCount} saved notes` : "Keep me updated"}</span>
         </span>
       </motion.button>
     </div>

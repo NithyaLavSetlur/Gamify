@@ -336,6 +336,21 @@ export type AssistantState = {
     subject_focus: string[];
     timer_preference: string | null;
     preferences: string[];
+    constraints: string[];
+    workflow_hints: string[];
+    topics: string[];
+    recent_notes: string[];
+    tone: string | null;
+    context_map: {
+      study_windows: string[];
+      subject_focus: string[];
+      workflow_hints: string[];
+      preferences: string[];
+      constraints: string[];
+      topics: string[];
+      recent_notes: string[];
+      tone: string | null;
+    };
   };
 };
 

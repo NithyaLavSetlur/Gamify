@@ -9,6 +9,34 @@ from app.services.assistant_ai import memory_context_notes
 from app.services.integrations import google_calendar_inventory, infer_calendar_subject, ticktick_inventory
 
 
+def context_blob(user_context: dict[str, Any]) -> str:
+    parts: list[str] = []
+    parts.extend(user_context.get("study_windows", []))
+    parts.extend(user_context.get("subject_focus", []))
+    parts.extend(user_context.get("preferences", []))
+    parts.extend(user_context.get("constraints", []))
+    parts.extend(user_context.get("workflow_hints", []))
+    parts.extend(user_context.get("topics", []))
+    parts.extend(user_context.get("recent_notes", []))
+    tone = user_context.get("tone")
+    if tone:
+        parts.append(str(tone))
+    return " ".join(str(part) for part in parts if part).lower()
+
+
+def context_has(user_context: dict[str, Any], *phrases: str) -> bool:
+    blob = context_blob(user_context)
+    return any(phrase.lower() in blob for phrase in phrases)
+
+
+def workflow_hints(user_context: dict[str, Any]) -> list[str]:
+    return [str(item).lower() for item in user_context.get("workflow_hints", [])]
+
+
+def context_topics(user_context: dict[str, Any]) -> list[str]:
+    return [str(item).lower() for item in user_context.get("topics", [])]
+
+
 def analyze_workflow(db, settings: Settings) -> dict[str, Any]:
     ticktick = ticktick_inventory(db)
     google = google_calendar_inventory(settings, db)
@@ -86,6 +114,11 @@ def build_task_context(tasks: list[dict], today: date, user_context: dict[str, A
     for task in open_tasks:
         due = as_date(task.get("due_date"))
         days_until_due = (due - today).days if due else 999
+        task_blob = " ".join(
+            str(part)
+            for part in [task.get("title"), task.get("project_name"), task.get("subject"), task.get("description"), task.get("content")]
+            if part
+        ).lower()
         priority_score = task.get("priority", 0) * 4
         if due is not None:
             if days_until_due < 0:
@@ -96,10 +129,19 @@ def build_task_context(tasks: list[dict], today: date, user_context: dict[str, A
                 priority_score += 40
             elif days_until_due <= 6:
                 priority_score += 20
+            if context_has(user_context, "organize_by_due_date", "prioritize_due_dates", "next 7 days", "next week"):
+                priority_score += 12 if days_until_due <= 6 else 0
         priority_score += xp_hint(task) / 5
         if task.get("difficulty") == "boss":
             priority_score += 25
+        if context_has(user_context, "prefer_short_sessions") and estimate_pomodoros(task) <= 1:
+            priority_score += 8
+        if context_has(user_context, "prefer_deep_work") and estimate_pomodoros(task) >= 2:
+            priority_score += 6
+        if context_has(user_context, "avoid_overload") and task.get("difficulty") == "boss":
+            priority_score -= 5
         priority_score += context_subject_bonus(task.get("subject"), user_context)
+        priority_score += context_topic_bonus(task_blob, user_context)
         if task.get("interpretation", {}).get("used_as") == "completed_xp":
             priority_score -= 5
         priorities.append(
@@ -113,7 +155,7 @@ def build_task_context(tasks: list[dict], today: date, user_context: dict[str, A
                 "xp_reward": task.get("xp_reward", 0),
                 "priority_score": round(priority_score, 1),
                 "estimated_pomodoros": estimate_pomodoros(task),
-                "reason": build_task_reason(task, days_until_due),
+                "reason": build_task_reason(task, days_until_due, user_context),
                 "source": "ticktick",
             }
         )
@@ -217,6 +259,22 @@ def build_subject_scores(tasks: list[dict], events: list[dict], user_context: di
     return result[:10]
 
 
+def context_topic_bonus(task_blob: str, user_context: dict[str, Any]) -> int:
+    if not task_blob:
+        return 0
+    lowered = task_blob.lower()
+    bonus = 0
+    for topic in user_context.get("topics", []):
+        topic_text = str(topic).lower()
+        if len(topic_text) >= 3 and topic_text in lowered:
+            bonus += 6
+    for phrase in user_context.get("recent_notes", []):
+        phrase_text = str(phrase).lower()
+        if len(phrase_text) >= 6 and phrase_text in lowered:
+            bonus += 4
+    return bonus
+
+
 def build_recommendations(task_context: dict[str, Any], calendar_context: dict[str, Any], subject_scores: list[dict], user_context: dict[str, Any]) -> list[str]:
     notes = []
     if task_context["overdue_tasks"]:
@@ -225,6 +283,8 @@ def build_recommendations(task_context: dict[str, Any], calendar_context: dict[s
         notes.append(f"{len(task_context['due_today'])} TickTick tasks are due today, so keep them inside the first work block.")
     if task_context["unscheduled"]:
         notes.append(f"{len(task_context['unscheduled'])} open TickTick tasks have no due date. Add dates to make the queue more precise.")
+    if context_has(user_context, "organize_by_due_date", "prioritize_due_dates", "next 7 days", "next week"):
+        notes.append("The assistant will keep the next 7 days front and center so the queue stays split by date instead of becoming one large list.")
     if calendar_context["exam_events"]:
         notes.append("Exam or test events were detected in Calendar, so the app should favour boss-fight prep in the affected week.")
     if any(day["free_windows"] for day in calendar_context["days"]):
@@ -236,6 +296,8 @@ def build_recommendations(task_context: dict[str, Any], calendar_context: dict[s
         notes.append(f"Use your preferred study window: {', '.join(user_context['study_windows'][:2])}.")
     if user_context["subject_focus"]:
         notes.append(f"Bias the plan toward your stated subjects: {', '.join(user_context['subject_focus'][:3])}.")
+    if user_context["constraints"]:
+        notes.append("Respect the user's stated constraints and keep the plan from getting noisy or overloaded.")
     if not notes:
         notes.append("No strong workflow pressure detected. Keep using Pomodoro mode to steadily convert tasks into progress.")
     return notes[:8]
@@ -249,6 +311,8 @@ def choose_best_mode(task_context: dict[str, Any], calendar_context: dict[str, A
     exam_events = len(calendar_context["exam_events"])
     if exam_events > 0 or overdue > 2:
         return {"name": "Boss prep", "reason": "Calendar exams or overdue tasks need concentrated prep.", "minutes": preferred_focus_minutes(user_context, 50)}
+    if context_has(user_context, "calendar_first") and free_windows > 0:
+        return {"name": "Calendar review", "reason": "The user's context says to work from the calendar first and protect the schedule.", "minutes": preferred_focus_minutes(user_context, 25)}
     if today_tasks > 0 and free_windows > 0:
         return {"name": "Pomodoro", "reason": "There are tasks due now and the calendar has usable focus windows.", "minutes": preferred_focus_minutes(user_context, 25)}
     if open_tasks > 8:
@@ -258,11 +322,12 @@ def choose_best_mode(task_context: dict[str, Any], calendar_context: dict[str, A
 
 def pick_tasks_for_day(tasks: list[dict], current_day: date, free_minutes: int) -> list[dict]:
     day_tasks = []
+    limit = 3 if free_minutes < 90 else 4
     for task in tasks:
         due = as_date(task.get("due_date"))
         if due is None:
             continue
-        if due <= current_day and len(day_tasks) < 4:
+        if due <= current_day and len(day_tasks) < limit:
             day_tasks.append(
                 {
                     "title": task.get("title"),
@@ -285,7 +350,7 @@ def pick_tasks_for_day(tasks: list[dict], current_day: date, free_minutes: int) 
                     "reason": task.get("reason"),
                 }
             )
-    return day_tasks[:4]
+    return day_tasks[:limit]
 
 
 def choose_feature_for_day(tasks: list[dict], free_minutes: int, exam_events: list[dict]) -> str:
@@ -311,6 +376,9 @@ def context_subject_bonus(subject: str | None, user_context: dict[str, Any]) -> 
     for preferred_window in user_context["study_windows"]:
         if preferred_window.lower() in lowered:
             bonus += 2
+    for topic in user_context.get("topics", []):
+        if str(topic).lower() in lowered:
+            bonus += 6
     return bonus
 
 
@@ -321,6 +389,10 @@ def preferred_focus_minutes(user_context: dict[str, Any], fallback: int = 25) ->
             return max(10, min(90, int(str(value).strip())))
     except Exception:
         pass
+    if context_has(user_context, "prefer_deep_work"):
+        return 50
+    if context_has(user_context, "prefer_short_sessions", "quick blocks"):
+        return 25
     return fallback
 
 
@@ -329,6 +401,8 @@ def prioritize_windows(windows: list[dict], user_context: dict[str, Any]) -> lis
         return windows
     preferred = [window for window in windows if window_matches_context(window, user_context)]
     other = [window for window in windows if window not in preferred]
+    if context_has(user_context, "calendar_first"):
+        return preferred or windows
     return preferred + other
 
 
@@ -396,7 +470,7 @@ def xp_hint(task: dict) -> int:
     return int(task.get("xp_reward") or 0)
 
 
-def build_task_reason(task: dict, days_until_due: int) -> str:
+def build_task_reason(task: dict, days_until_due: int, user_context: dict[str, Any] | None = None) -> str:
     if days_until_due < 0:
         return "Overdue, so it should be surfaced before anything else."
     if days_until_due == 0:
@@ -407,6 +481,8 @@ def build_task_reason(task: dict, days_until_due: int) -> str:
         return "High complexity work should be split across multiple focused sessions."
     if task.get("interpretation", {}).get("used_as") == "completed_xp":
         return "Already completed in TickTick; keep it in history only."
+    if user_context and context_has(user_context, "next 7 days", "next week", "prioritize_due_dates"):
+        return "The user wants a date-first queue, so this stays visible in the next 7 days."
     return "Standard upcoming task, suitable for the next open focus block."
 
 
