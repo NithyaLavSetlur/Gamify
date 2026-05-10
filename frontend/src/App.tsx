@@ -65,6 +65,9 @@ const difficultyTone: Record<string, string> = {
   boss: "text-violet-100 bg-rune/16 border-rune/40"
 };
 
+const smoothSpring = { type: "spring", stiffness: 260, damping: 28 } as const;
+const smoothEase = { duration: 0.28, ease: [0.22, 1, 0.36, 1] } as const;
+
 export default function App() {
   const [page, setPage] = useState<Page>("timer");
   const [navOpen, setNavOpen] = useState(false);
@@ -237,6 +240,7 @@ export default function App() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
+                  transition={smoothEase}
                   onClick={() => setNavOpen(false)}
                   className="nav-overlay-backdrop fixed inset-0 top-[4.75rem] z-30 cursor-default bg-slate-950/10 backdrop-blur-[3px]"
                 />
@@ -244,6 +248,7 @@ export default function App() {
                   initial={{ opacity: 0, x: "-50%", y: -10, scale: 0.99 }}
                   animate={{ opacity: 1, x: "-50%", y: 0, scale: 1 }}
                   exit={{ opacity: 0, x: "-50%", y: -10, scale: 0.99 }}
+                  transition={smoothSpring}
                   className="nav-overlay-panel fixed left-1/2 top-[4.75rem] z-40 w-[min(68rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-[0_24px_70px_rgba(71,61,104,0.16)] backdrop-blur-xl"
                 >
                   <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-3">
@@ -331,16 +336,16 @@ export default function App() {
 
       <main className="mx-auto w-full max-w-[96rem] px-3 py-3 md:px-6 md:py-6 xl:px-8">
         <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 px-4 py-3 backdrop-blur md:hidden">
-          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+          <div className="grid grid-cols-[1fr_auto_auto] gap-2">
             <Select value={page} onChange={(event) => setPage(event.target.value as Page)}>
               {nav.map((item) => <option value={item.key} key={item.key}>{item.label}</option>)}
             </Select>
-            <Button variant="ghost" onClick={toggleTheme} className="justify-center rounded-lg">
+            <Button variant="ghost" aria-label={themeLabel} onClick={toggleTheme} className="h-11 w-11 rounded-lg px-0">
               <ThemeIcon size={16} />
-              <span className="hidden sm:inline">{themeLabel}</span>
             </Button>
-            <Button onClick={openLockIn} className="justify-center rounded-lg sm:hidden">
-              <Maximize2 size={16} /> Lock in
+            <Button onClick={openLockIn} className="h-11 rounded-lg px-3">
+              <Maximize2 size={16} />
+              <span className="hidden min-[360px]:inline">Lock</span>
             </Button>
           </div>
         </header>
@@ -350,7 +355,7 @@ export default function App() {
           <RankHero state={state} wording={wording} />
       <QuickLaunch state={state} nextQuest={nextQuest} setPage={setPage} refresh={refresh} wording={wording} />
           <AnimatePresence mode="wait">
-            <motion.div key={page} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.22 }}>
+            <motion.div key={page} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={smoothEase}>
               {page === "dashboard" && <Dashboard state={state} refresh={refresh} completeWithReward={completeWithReward} wording={wording} />}
               {page === "integrations" && <IntegrationDataHub refresh={refresh} completeWithReward={completeWithReward} />}
               {page === "quests" && <Quests state={state} refresh={refresh} completeWithReward={completeWithReward} />}
@@ -375,7 +380,8 @@ function RankHero({ state, wording }: { state: DashboardState; wording: Record<s
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-panel via-midnight to-ink p-4 shadow-glow sm:p-5"
+        transition={smoothEase}
+        className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-panel via-midnight to-ink p-5 shadow-glow sm:p-6"
       >
         <div className="absolute right-[-3rem] top-[-5rem] hidden h-48 w-48 rounded-full bg-jade/10 blur-3xl sm:block" />
         <div className="absolute bottom-[-6rem] left-1/3 hidden h-56 w-56 rounded-full bg-rune/12 blur-3xl sm:block" />
@@ -383,7 +389,7 @@ function RankHero({ state, wording }: { state: DashboardState; wording: Record<s
           <div className="absolute inset-4 rounded-full border border-jade/20" />
           <Sparkles className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-gold" size={24} />
         </div>
-        <div className="relative grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
+        <div className="relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,22rem)] lg:items-center">
           <div>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-gold">
               <Trophy size={14} /> Current Rank: {profile.rank_title}
@@ -398,7 +404,7 @@ function RankHero({ state, wording }: { state: DashboardState; wording: Record<s
               <Progress value={profile.xp_into_level} max={profile.xp_for_next_level} tone="gold" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-2">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
             <MiniStat icon={<Flame className="flame-flicker text-ember" />} label={wording.streak} value={`${profile.current_streak}d`} />
             <MiniStat icon={<Zap className="text-gold" />} label="Combo" value={`${profile.combo_count}x`} />
             <MiniStat icon={<Snowflake className="text-cyan-200" />} label="Freeze" value={profile.streak_freezes.toString()} />
@@ -406,7 +412,7 @@ function RankHero({ state, wording }: { state: DashboardState; wording: Record<s
           </div>
         </div>
       </motion.div>
-      <Panel className="mission-panel bg-gradient-to-br from-panel2/90 to-midnight">
+      <Panel className="mission-panel flex flex-col justify-center bg-gradient-to-br from-panel2/90 to-midnight">
         <h3 className="mb-3 text-lg font-black text-white">{wording.mission}</h3>
         <div className="grid grid-cols-2 gap-3">
           <ProgressRing value={state.goals.daily_xp} max={state.goals.daily_goal} label="Daily XP" />
@@ -1858,9 +1864,9 @@ function TogglePill({ label, active }: { label: string; active: boolean }) {
 
 function ToggleControl({ label, active, onChange }: { label: string; active: boolean; onChange: (value: boolean) => void }) {
   return (
-    <label className={`flex items-center justify-between rounded-lg border p-3 ${active ? "border-violet-200 bg-violet-50" : "border-slate-200 bg-white"}`}>
+    <label className={`flex min-h-12 items-center justify-between rounded-lg border p-3.5 ${active ? "border-violet-200 bg-violet-50" : "border-slate-200 bg-white"}`}>
       <span className="text-sm font-bold text-slate-800">{label}</span>
-      <input type="checkbox" checked={active} onChange={(event) => onChange(event.target.checked)} />
+      <input className="h-6 w-6 rounded border-slate-300 accent-violet-600" type="checkbox" checked={active} onChange={(event) => onChange(event.target.checked)} />
     </label>
   );
 }
@@ -2071,9 +2077,9 @@ function SettingsPage({ state, refresh }: { state: DashboardState; refresh: () =
             <Field type="number" value={dailyGoal} onChange={(e) => setDailyGoal(Number(e.target.value))} />
             <Field type="number" value={weeklyGoal} onChange={(e) => setWeeklyGoal(Number(e.target.value))} />
           </div>
-          <label className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+          <label className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3 text-sm">
             <span className="font-semibold text-slate-700">Shrivaishnava mode</span>
-            <input type="checkbox" checked={shrivaishnavaMode} onChange={(e) => setShrivaishnavaMode(e.target.checked)} />
+            <input className="h-6 w-6 rounded border-slate-300 accent-violet-600" type="checkbox" checked={shrivaishnavaMode} onChange={(e) => setShrivaishnavaMode(e.target.checked)} />
           </label>
           <Button onClick={save}>Save profile</Button>
         </div>
