@@ -301,7 +301,7 @@ def generate_ai_reply(message: str, summary: dict[str, Any], pending_question: s
         "Be normal, calm, and direct. "
         "If you need more detail, ask one short question. "
         "If the user is giving context, acknowledge it briefly. "
-        "Never be verbose."
+        "Never be verbose. Return only JSON with reply, needs_follow_up, and follow_up_question."
     )
     user_prompt = {
         "message": message,
@@ -321,6 +321,7 @@ def generate_ai_reply(message: str, summary: dict[str, Any], pending_question: s
         ],
         "temperature": 0.2,
         "max_tokens": 80,
+        "response_format": {"type": "json_object"},
     }
     try:
         response = httpx.post(

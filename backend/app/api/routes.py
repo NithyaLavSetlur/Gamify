@@ -87,6 +87,12 @@ def profile_out(db: Session) -> ProfileOut:
         weekly_xp_goal=profile.weekly_xp_goal,
         streak_freezes=profile.streak_freezes,
         shrivaishnava_mode=profile.shrivaishnava_mode,
+        lock_media_url=profile.lock_media_url or "",
+        lock_media_position=profile.lock_media_position or "right",
+        lock_show_timer=profile.lock_show_timer,
+        lock_show_stats=profile.lock_show_stats,
+        lock_show_tasks=profile.lock_show_tasks,
+        lock_show_quote=profile.lock_show_quote,
         **level,
     )
 
@@ -425,6 +431,18 @@ def update_settings(payload: SettingsUpdate, db: Session = Depends(get_db)) -> P
         profile.daily_xp_goal = payload.daily_xp_goal
     if payload.weekly_xp_goal is not None:
         profile.weekly_xp_goal = payload.weekly_xp_goal
+    if payload.lock_media_url is not None:
+        profile.lock_media_url = payload.lock_media_url.strip()
+    if payload.lock_media_position is not None:
+        profile.lock_media_position = payload.lock_media_position
+    if payload.lock_show_timer is not None:
+        profile.lock_show_timer = payload.lock_show_timer
+    if payload.lock_show_stats is not None:
+        profile.lock_show_stats = payload.lock_show_stats
+    if payload.lock_show_tasks is not None:
+        profile.lock_show_tasks = payload.lock_show_tasks
+    if payload.lock_show_quote is not None:
+        profile.lock_show_quote = payload.lock_show_quote
     db.commit()
     return profile_out(db)
 

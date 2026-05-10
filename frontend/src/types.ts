@@ -9,6 +9,12 @@ export type Profile = {
   weekly_xp_goal: number;
   streak_freezes: number;
   shrivaishnava_mode: boolean;
+  lock_media_url: string;
+  lock_media_position: "right" | "left" | "top" | "bottom" | "background" | "hidden" | string;
+  lock_show_timer: boolean;
+  lock_show_stats: boolean;
+  lock_show_tasks: boolean;
+  lock_show_quote: boolean;
   level: number;
   xp_into_level: number;
   xp_for_next_level: number;

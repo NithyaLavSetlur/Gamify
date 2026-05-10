@@ -6,12 +6,15 @@ The hosted app stores study data through the backend database, not browser cache
 
 The first hosted version does **not** require TickTick or Google credentials. Manual quests, XP, streaks, boss fights, study timer, stats, and manual calendar blocks work before OAuth is configured.
 
+The Context AI assistant works without an OpenAI key using deterministic context extraction. Add `OPENAI_API_KEY` to the backend environment to enable model-backed short chatbot replies.
+
 ## Data Persistence
 
 - Local development uses SQLite by default at `backend/gamify.db`.
 - Production should set `DATABASE_URL` to PostgreSQL, such as Railway Postgres.
 - Browser cache/local storage is not the source of truth for study data.
 - The Settings page shows the active storage mode under **Data Storage**.
+- Lock In screen preferences are also stored on the backend profile.
 - Clearing browser cache does not delete hosted PostgreSQL data.
 
 Current limitation: the app is still a personal single-profile app, not a full multi-user login system. Adding email/password login and per-user data isolation is a separate auth feature.
@@ -75,6 +78,8 @@ FRONTEND_URL=https://your-frontend.example
 PRODUCTION_FRONTEND_URL=https://your-frontend.example
 CORS_ORIGINS=https://your-frontend.example
 SECRET_KEY=replace-with-a-long-random-string
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4o-mini
 
 TICKTICK_CLIENT_ID=
 TICKTICK_CLIENT_SECRET=
@@ -189,6 +194,29 @@ GOOGLE_CALENDAR_ID=primary
 ```
 
 Redeploy backend after adding credentials. OAuth buttons unlock automatically when credentials are configured.
+
+## Context AI
+
+The floating Context AI bubble stores brief user notes in the backend and feeds them into workflow analysis for TickTick tasks and Google Calendar events. It extracts study windows, subjects, constraints, task sorting preferences, timer preferences, and tone.
+
+For model-backed replies, set these backend variables and redeploy:
+
+```env
+OPENAI_API_KEY=your_openai_key
+OPENAI_MODEL=gpt-4o-mini
+```
+
+The assistant is intentionally concise because it runs inside a small chat panel.
+
+## Lock In Screen
+
+The Study Timer page includes **Lock in mode**, a fullscreen black focus screen. It shows the active timer when one is running; otherwise it shows a ready state with selected stats.
+
+Configure it from Settings -> Lock In Screen:
+
+- media URL
+- media position: left, right, top, bottom, background, or hidden
+- whether to show timer, stats, current task, and quote
 
 ## Environment Example Files
 

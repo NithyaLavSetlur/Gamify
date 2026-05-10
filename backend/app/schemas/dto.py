@@ -14,6 +14,12 @@ class ProfileOut(BaseModel):
     weekly_xp_goal: int
     streak_freezes: int
     shrivaishnava_mode: bool
+    lock_media_url: str
+    lock_media_position: str
+    lock_show_timer: bool
+    lock_show_stats: bool
+    lock_show_tasks: bool
+    lock_show_quote: bool
     level: int
     xp_into_level: int
     xp_for_next_level: int
@@ -196,6 +202,12 @@ class SettingsUpdate(BaseModel):
     shrivaishnava_mode: bool | None = None
     daily_xp_goal: int | None = None
     weekly_xp_goal: int | None = None
+    lock_media_url: str | None = None
+    lock_media_position: str | None = None
+    lock_show_timer: bool | None = None
+    lock_show_stats: bool | None = None
+    lock_show_tasks: bool | None = None
+    lock_show_quote: bool | None = None
 
 
 class DashboardOut(BaseModel):

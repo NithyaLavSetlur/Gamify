@@ -344,6 +344,31 @@ textarea {
   border-color: rgba(132, 120, 169, 0.2) !important;
 }
 
+.theme-dark .nav-overlay-backdrop {
+  background: rgba(4, 6, 14, 0.34) !important;
+  backdrop-filter: blur(5px);
+}
+
+.theme-dark .nav-overlay-panel {
+  background: rgba(13, 16, 28, 0.98) !important;
+  border-color: rgba(132, 120, 169, 0.26) !important;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.65) !important;
+}
+
+.theme-dark .nav-overlay-panel button {
+  background-color: rgba(15, 18, 30, 0.96) !important;
+  border-color: rgba(132, 120, 169, 0.24) !important;
+}
+
+.theme-dark .nav-overlay-panel button:hover {
+  background-color: rgba(31, 25, 54, 0.98) !important;
+}
+
+.theme-dark .nav-overlay-panel button[class*="bg-violet-600"] {
+  background-color: #7c3aed !important;
+  border-color: rgba(196, 181, 253, 0.5) !important;
+}
+
 .theme-dark .text-slate-900,
 .theme-dark .text-slate-800 {
   color: #f5f1ff !important;

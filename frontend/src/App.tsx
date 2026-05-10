@@ -17,6 +17,7 @@ import {
   Link,
   ListChecks,
   Lock,
+  Maximize2,
   Play,
   Plus,
   Pause,
@@ -225,42 +226,52 @@ export default function App() {
           </div>
           <AnimatePresence>
             {navOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-[0_20px_50px_rgba(71,61,104,0.12)]"
-              >
-                <div className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {nav.map((item) => {
-                    const Icon = item.icon;
-                    const active = page === item.key;
-                    return (
-                      <motion.button
-                        key={item.key}
-                        whileHover={{ y: -1 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setPage(item.key)}
-                        className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition ${
-                          active
-                            ? "border-violet-300 bg-violet-600 text-white"
-                            : "border-slate-200 bg-slate-50 text-slate-700 hover:border-violet-200 hover:bg-white"
-                        }`}
-                      >
-                        <span className={`grid h-9 w-9 place-items-center rounded-full ${active ? "bg-white/15" : "bg-white text-violet-600"}`}>
-                          <Icon size={16} />
-                        </span>
-                        <span>
-                          <span className="block text-sm font-black">{item.label}</span>
-                          <span className={`block text-xs ${active ? "text-violet-100" : "text-slate-500"}`}>
-                            Open {item.label.toLowerCase()}
+              <>
+                <motion.button
+                  aria-label="Close navigation"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setNavOpen(false)}
+                  className="nav-overlay-backdrop fixed inset-0 top-[4.75rem] z-30 cursor-default bg-slate-950/10 backdrop-blur-[3px]"
+                />
+                <motion.div
+                  initial={{ opacity: 0, x: "-50%", y: -10, scale: 0.99 }}
+                  animate={{ opacity: 1, x: "-50%", y: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: "-50%", y: -10, scale: 0.99 }}
+                  className="nav-overlay-panel fixed left-1/2 top-[4.75rem] z-40 w-[min(68rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-[0_24px_70px_rgba(71,61,104,0.16)] backdrop-blur-xl"
+                >
+                  <div className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {nav.map((item) => {
+                      const Icon = item.icon;
+                      const active = page === item.key;
+                      return (
+                        <motion.button
+                          key={item.key}
+                          whileHover={{ y: -1 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => setPage(item.key)}
+                          className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition ${
+                            active
+                              ? "border-violet-300 bg-violet-600 text-white"
+                              : "border-slate-200 bg-slate-50 text-slate-700 hover:border-violet-200 hover:bg-white"
+                          }`}
+                        >
+                          <span className={`grid h-9 w-9 place-items-center rounded-full ${active ? "bg-white/15" : "bg-white text-violet-600"}`}>
+                            <Icon size={16} />
                           </span>
-                        </span>
-                      </motion.button>
-                    );
-                  })}
-                </div>
-              </motion.div>
+                          <span>
+                            <span className="block text-sm font-black">{item.label}</span>
+                            <span className={`block text-xs ${active ? "text-violet-100" : "text-slate-500"}`}>
+                              Open {item.label.toLowerCase()}
+                            </span>
+                          </span>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              </>
             )}
           </AnimatePresence>
         </div>
@@ -1151,6 +1162,7 @@ function PomodoroTimer({ state, refresh, triggerReward }: { state: DashboardStat
   const [running, setRunning] = useState(false);
   const [cycleCount, setCycleCount] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
+  const [lockInOpen, setLockInOpen] = useState(false);
   const [settingsDraft, setSettingsDraft] = useState(settings);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskSubject, setTaskSubject] = useState("General");
@@ -1306,6 +1318,9 @@ function PomodoroTimer({ state, refresh, triggerReward }: { state: DashboardStat
 
           <div className="flex flex-wrap justify-center gap-2">
             <Button onClick={startPause}>{running ? <Pause size={16} /> : <Play size={16} />} {running ? "Pause" : "Start"}</Button>
+            <Button variant="ghost" onClick={() => setLockInOpen(true)}>
+              <Maximize2 size={16} /> Lock in mode
+            </Button>
             <Button variant="ghost" onClick={reset}>
               <RefreshCcw size={16} /> Reset
             </Button>
@@ -1385,6 +1400,16 @@ function PomodoroTimer({ state, refresh, triggerReward }: { state: DashboardStat
       </div>
 
       <AnimatePresence>
+        {lockInOpen && (
+          <LockInOverlay
+            state={state}
+            phaseLabelText={phaseLabelText}
+            seconds={seconds}
+            running={running}
+            currentTask={currentTask}
+            onClose={() => setLockInOpen(false)}
+          />
+        )}
         {showSettings && (
           <motion.div className="fixed inset-0 z-40 grid place-items-center bg-black/70 px-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <motion.div initial={{ opacity: 0, scale: 0.96, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.98, y: 10 }} className="w-full max-w-xl rounded-lg border border-white/10 bg-midnight p-5 shadow-glow">
@@ -1413,6 +1438,115 @@ function PomodoroTimer({ state, refresh, triggerReward }: { state: DashboardStat
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function LockInOverlay({
+  state,
+  phaseLabelText,
+  seconds,
+  running,
+  currentTask,
+  onClose
+}: {
+  state: DashboardState;
+  phaseLabelText: string;
+  seconds: number;
+  running: boolean;
+  currentTask: PomodoroTask | null;
+  onClose: () => void;
+}) {
+  const profile = state.profile;
+  const mediaUrl = profile.lock_media_url?.trim();
+  const mediaPosition = profile.lock_media_position || "right";
+  const showMedia = Boolean(mediaUrl) && mediaPosition !== "hidden";
+  const media = showMedia ? <LockInMedia url={mediaUrl} background={mediaPosition === "background"} /> : null;
+  const content = (
+    <div className="relative z-10 grid min-h-0 gap-6 p-6 text-white sm:p-10">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-violet-300">Lock in</p>
+          <h2 className="mt-1 text-2xl font-black sm:text-4xl">{running ? phaseLabelText : "Ready when you are"}</h2>
+        </div>
+        <button onClick={onClose} className="rounded-full border border-white/15 bg-white/8 p-3 text-white transition hover:bg-white/15">
+          <X size={20} />
+        </button>
+      </div>
+
+      {profile.lock_show_timer && (
+        <div className="grid place-items-center py-6">
+          <div className="grid h-64 w-64 place-items-center rounded-full border border-white/10 bg-white/[0.03] shadow-[0_0_80px_rgba(139,124,246,0.2)] sm:h-80 sm:w-80">
+            <div className="text-center">
+              <Hourglass className="mx-auto mb-4 text-violet-300" size={34} />
+              <div className="text-6xl font-black tabular-nums sm:text-8xl">{running ? formatTime(seconds) : "00:00"}</div>
+              <p className="mt-3 text-sm uppercase tracking-[0.2em] text-white/50">{running ? phaseLabelText : "No timer running"}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-3">
+        {profile.lock_show_stats && (
+          <>
+            <LockInStat label="Level" value={String(profile.level)} />
+            <LockInStat label="XP" value={String(profile.xp)} />
+            <LockInStat label="Streak" value={`${profile.current_streak}d`} />
+          </>
+        )}
+      </div>
+
+      {profile.lock_show_tasks && (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/45">Current task</p>
+          <h3 className="mt-2 text-xl font-black">{currentTask?.title ?? "No task selected"}</h3>
+          <p className="mt-1 text-sm text-white/55">{currentTask ? `${currentTask.subject} - ${currentTask.remaining_pomodoros} pomodoros left` : "Start or select a task from the timer queue."}</p>
+        </div>
+      )}
+
+      {profile.lock_show_quote && (
+        <p className="max-w-2xl text-sm leading-6 text-white/55">{state.quote.body}</p>
+      )}
+    </div>
+  );
+
+  const layoutClass =
+    mediaPosition === "left"
+      ? "lg:grid-cols-[0.85fr_1.15fr]"
+      : mediaPosition === "top" || mediaPosition === "bottom"
+        ? "grid-rows-[auto_1fr]"
+        : "lg:grid-cols-[1.15fr_0.85fr]";
+
+  return (
+    <motion.div className="fixed inset-0 z-[80] overflow-y-auto bg-black" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      {mediaPosition === "background" && media}
+      <div className={`relative mx-auto grid min-h-screen max-w-7xl ${showMedia && mediaPosition !== "background" ? layoutClass : ""}`}>
+        {showMedia && mediaPosition === "left" && <div className="min-h-64 p-4 lg:min-h-screen">{media}</div>}
+        {showMedia && mediaPosition === "top" && <div className="min-h-64 p-4">{media}</div>}
+        {content}
+        {showMedia && mediaPosition === "right" && <div className="min-h-64 p-4 lg:min-h-screen">{media}</div>}
+        {showMedia && mediaPosition === "bottom" && <div className="min-h-64 p-4">{media}</div>}
+      </div>
+    </motion.div>
+  );
+}
+
+function LockInMedia({ url, background = false }: { url: string; background?: boolean }) {
+  const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(url);
+  const className = background
+    ? "absolute inset-0 h-full w-full object-cover opacity-25"
+    : "h-full min-h-64 w-full rounded-2xl border border-white/10 object-cover";
+  if (isVideo) {
+    return <video src={url} className={className} autoPlay muted loop playsInline />;
+  }
+  return <img src={url} alt="" className={className} />;
+}
+
+function LockInStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/45">{label}</p>
+      <p className="mt-1 text-3xl font-black text-white">{value}</p>
     </div>
   );
 }
@@ -1510,6 +1644,15 @@ function TogglePill({ label, active }: { label: string; active: boolean }) {
       <p className="text-sm font-bold text-white">{label}</p>
       <p className="mt-1 text-xs text-slate-400">{active ? "Enabled" : "Disabled"}</p>
     </div>
+  );
+}
+
+function ToggleControl({ label, active, onChange }: { label: string; active: boolean; onChange: (value: boolean) => void }) {
+  return (
+    <label className={`flex items-center justify-between rounded-lg border p-3 ${active ? "border-violet-200 bg-violet-50" : "border-slate-200 bg-white"}`}>
+      <span className="text-sm font-bold text-slate-800">{label}</span>
+      <input type="checkbox" checked={active} onChange={(event) => onChange(event.target.checked)} />
+    </label>
   );
 }
 
@@ -1678,6 +1821,13 @@ function SettingsPage({ state, refresh }: { state: DashboardState; refresh: () =
   const [name, setName] = useState(state.profile.display_name);
   const [dailyGoal, setDailyGoal] = useState(state.profile.daily_xp_goal);
   const [weeklyGoal, setWeeklyGoal] = useState(state.profile.weekly_xp_goal);
+  const [shrivaishnavaMode, setShrivaishnavaMode] = useState(state.profile.shrivaishnava_mode);
+  const [lockMediaUrl, setLockMediaUrl] = useState(state.profile.lock_media_url ?? "");
+  const [lockMediaPosition, setLockMediaPosition] = useState(state.profile.lock_media_position ?? "right");
+  const [lockShowTimer, setLockShowTimer] = useState(state.profile.lock_show_timer);
+  const [lockShowStats, setLockShowStats] = useState(state.profile.lock_show_stats);
+  const [lockShowTasks, setLockShowTasks] = useState(state.profile.lock_show_tasks);
+  const [lockShowQuote, setLockShowQuote] = useState(state.profile.lock_show_quote);
   const [deployment, setDeployment] = useState<DeploymentConfig | null>(null);
   const [health, setHealth] = useState<Record<string, unknown> | null>(null);
   const google = state.integrations.google_calendar;
@@ -1690,9 +1840,15 @@ function SettingsPage({ state, refresh }: { state: DashboardState; refresh: () =
   const save = async () => {
     await api.updateSettings({
       display_name: name,
-      shrivaishnava_mode: !state.profile.shrivaishnava_mode,
+      shrivaishnava_mode: shrivaishnavaMode,
       daily_xp_goal: dailyGoal,
-      weekly_xp_goal: weeklyGoal
+      weekly_xp_goal: weeklyGoal,
+      lock_media_url: lockMediaUrl,
+      lock_media_position: lockMediaPosition,
+      lock_show_timer: lockShowTimer,
+      lock_show_stats: lockShowStats,
+      lock_show_tasks: lockShowTasks,
+      lock_show_quote: lockShowQuote
     });
     await refresh();
   };
@@ -1706,7 +1862,32 @@ function SettingsPage({ state, refresh }: { state: DashboardState; refresh: () =
             <Field type="number" value={dailyGoal} onChange={(e) => setDailyGoal(Number(e.target.value))} />
             <Field type="number" value={weeklyGoal} onChange={(e) => setWeeklyGoal(Number(e.target.value))} />
           </div>
-          <Button onClick={save}>{state.profile.shrivaishnava_mode ? "Use RPG wording" : "Use Shrivaishnava mode"}</Button>
+          <label className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+            <span className="font-semibold text-slate-700">Shrivaishnava mode</span>
+            <input type="checkbox" checked={shrivaishnavaMode} onChange={(e) => setShrivaishnavaMode(e.target.checked)} />
+          </label>
+          <Button onClick={save}>Save profile</Button>
+        </div>
+      </Panel>
+      <Panel>
+        <PanelHeader title="Lock In Screen" />
+        <div className="space-y-3 text-sm">
+          <Field placeholder="Media URL for focus screen" value={lockMediaUrl} onChange={(e) => setLockMediaUrl(e.target.value)} />
+          <Select value={lockMediaPosition} onChange={(e) => setLockMediaPosition(e.target.value)}>
+            <option value="right">Media right</option>
+            <option value="left">Media left</option>
+            <option value="top">Media top</option>
+            <option value="bottom">Media bottom</option>
+            <option value="background">Media background</option>
+            <option value="hidden">Hide media</option>
+          </Select>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <ToggleControl label="Timer" active={lockShowTimer} onChange={setLockShowTimer} />
+            <ToggleControl label="Stats" active={lockShowStats} onChange={setLockShowStats} />
+            <ToggleControl label="Task" active={lockShowTasks} onChange={setLockShowTasks} />
+            <ToggleControl label="Quote" active={lockShowQuote} onChange={setLockShowQuote} />
+          </div>
+          <Button onClick={save}>Save lock-in screen</Button>
         </div>
       </Panel>
       <Panel>
@@ -2213,6 +2394,7 @@ function AssistantBubbleV2() {
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState("");
   const [followUp, setFollowUp] = useState<string | null>(null);
+  const [assistantError, setAssistantError] = useState("");
   const [state, setState] = useState<AssistantState | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const draftRef = useRef<HTMLTextAreaElement | null>(null);
@@ -2221,8 +2403,10 @@ function AssistantBubbleV2() {
     setLoading(true);
     try {
       setState(await api.assistantState());
+      setAssistantError("");
     } catch {
       setState(null);
+      setAssistantError("Context AI is offline.");
     } finally {
       setLoading(false);
     }
@@ -2256,6 +2440,7 @@ function AssistantBubbleV2() {
     setSending(true);
     try {
       const response = await api.sendAssistantMessage({ message: trimmed });
+      setAssistantError("");
       setFollowUp(response.needs_follow_up ? response.follow_up_question : null);
       setState((previous) => {
         const userMessage: AssistantMessage = {
@@ -2281,6 +2466,8 @@ function AssistantBubbleV2() {
       });
       setDraft("");
       window.dispatchEvent(new Event("workflow-context-updated"));
+    } catch (error) {
+      setAssistantError(error instanceof Error ? error.message : "Message failed.");
     } finally {
       setSending(false);
     }
@@ -2377,6 +2564,7 @@ function AssistantBubbleV2() {
               </div>
 
               {followUp ? <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">{followUp}</div> : null}
+              {assistantError ? <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{assistantError}</div> : null}
 
               <div className="flex gap-2">
                 <textarea
@@ -2403,9 +2591,9 @@ function AssistantBubbleV2() {
           <motion.button
             key="assistant-bubble"
             initial={{ opacity: 0, y: 8, scale: 0.96 }}
-            animate={{ opacity: 1, y: [0, -2, 0], scale: 1 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.96 }}
-            transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setOpen(true)}
