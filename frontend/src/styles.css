@@ -602,6 +602,46 @@ textarea {
   color-scheme: dark;
 }
 
+.theme-light .lock-in-overlay,
+.theme-dark .lock-in-overlay,
+.lock-in-overlay {
+  color: #ffffff !important;
+  background: #000000 !important;
+  color-scheme: dark;
+}
+
+.theme-light .lock-in-overlay .text-white,
+.theme-light .lock-in-overlay .text-slate-100,
+.theme-light .lock-in-overlay .text-slate-200,
+.theme-light .lock-in-overlay .font-black,
+.theme-light .lock-in-overlay .font-bold,
+.lock-in-overlay .text-white,
+.lock-in-overlay .text-slate-100,
+.lock-in-overlay .text-slate-200 {
+  color: #ffffff !important;
+}
+
+.theme-light .lock-in-overlay .text-white\/55,
+.lock-in-overlay .text-white\/55 {
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+
+.theme-light .lock-in-overlay .text-white\/50,
+.lock-in-overlay .text-white\/50 {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.theme-light .lock-in-overlay .text-white\/45,
+.lock-in-overlay .text-white\/45 {
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+.theme-light .lock-in-overlay .bg-black,
+.theme-dark .lock-in-overlay .bg-black,
+.lock-in-overlay.bg-black {
+  background-color: #000000 !important;
+}
+
 .theme-light .panel-hover,
 .theme-light .rounded-lg[class*="bg-ink"],
 .theme-light .rounded-md[class*="bg-ink"],
