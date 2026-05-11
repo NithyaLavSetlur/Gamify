@@ -41,10 +41,10 @@ import {
   Sun
 } from "lucide-react";
 import { api, apiBaseUrl } from "./lib/api";
-import type { AssistantMessage, AssistantState, BossFight, CalendarEvent, DashboardState, DeploymentConfig, IntegrationCalendarEvent, IntegrationIntelligence, IntegrationTask, PomodoroBoard, PomodoroTask, Quest, StudySession } from "./types";
+import type { AssistantMemory, AssistantMessage, AssistantState, BossFight, CalendarEvent, DashboardState, DeploymentConfig, IntegrationCalendarEvent, IntegrationIntelligence, IntegrationTask, PomodoroBoard, PomodoroTask, Quest, StudySession } from "./types";
 import { Button, Field, Panel, Progress, Select, TextArea } from "./components/ui";
 
-type Page = "dashboard" | "integrations" | "quests" | "timer" | "bosses" | "calendar" | "ticktick" | "stats" | "settings";
+type Page = "dashboard" | "integrations" | "quests" | "timer" | "bosses" | "calendar" | "ticktick" | "stats" | "context" | "settings";
 
 const nav: Array<{ key: Page; label: string; icon: typeof Gauge }> = [
   { key: "dashboard", label: "Dashboard", icon: Gauge },
@@ -55,6 +55,7 @@ const nav: Array<{ key: Page; label: string; icon: typeof Gauge }> = [
   { key: "calendar", label: "Calendar", icon: CalendarDays },
   { key: "ticktick", label: "TickTick", icon: Link },
   { key: "stats", label: "Stats", icon: BarChart3 },
+  { key: "context", label: "AI Context", icon: MessageCircle },
   { key: "settings", label: "Settings", icon: Settings }
 ];
 
@@ -249,7 +250,7 @@ export default function App() {
     <div className={`min-h-screen overflow-x-hidden text-slate-100 ${theme === "light" ? "claude-shell theme-light" : "theme-dark"}`}>
       <AmbientBackdrop />
       <RewardBurst seed={rewardBurst} />
-      <AssistantBubbleV2 />
+      <AssistantBubbleV2 setPage={setPage} />
       <AnimatePresence>
         {levelFlash && (
           <motion.div
@@ -430,6 +431,7 @@ export default function App() {
               {page === "calendar" && <CalendarView state={state} refresh={refresh} />}
               {page === "ticktick" && <TickTick state={state} refresh={refresh} completeWithReward={completeWithReward} />}
               {page === "stats" && <Stats state={state} />}
+              {page === "context" && <ContextManagerPage />}
               {page === "settings" && <SettingsPage state={state} refresh={refresh} />}
             </motion.div>
           </AnimatePresence>
@@ -2765,7 +2767,7 @@ function AssistantBubble() {
   );
 }
 
-function AssistantBubbleV2() {
+function AssistantBubbleV2({ setPage }: { setPage: (page: Page) => void }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -2847,13 +2849,6 @@ function AssistantBubbleV2() {
   const topics = state?.summary.topics ?? [];
   const constraints = state?.summary.constraints ?? [];
   const engine = state?.summary.engine;
-  const contextChips = [
-    ...subjects.slice(0, 3).map((value) => ({ tone: "bg-violet-100 text-violet-700", value })),
-    ...windows.slice(0, 3).map((value) => ({ tone: "bg-slate-200 text-slate-700", value })),
-    ...workflowHints.slice(0, 3).map((value) => ({ tone: "bg-amber-100 text-amber-800", value: value.replace(/_/g, " ") })),
-    ...topics.slice(0, 2).map((value) => ({ tone: "bg-purple-100 text-purple-700", value })),
-    ...constraints.slice(0, 2).map((value) => ({ tone: "bg-rose-100 text-rose-700", value: value.length > 18 ? `${value.slice(0, 18)}...` : value })),
-  ];
 
   return (
     <div className="fixed bottom-3 right-3 z-[60] sm:bottom-4 sm:right-4">
@@ -2891,15 +2886,24 @@ function AssistantBubbleV2() {
 
             <div className="space-y-3 px-4 py-3">
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-                <div className="flex flex-wrap gap-2">
+                <div className="hidden">
                   {subjects.slice(0, 3).map((item, index) => <span key={`subject-${item}-${index}`} className="rounded-full bg-violet-100 px-2 py-1 text-violet-700">{item}</span>)}
                   {windows.slice(0, 3).map((item, index) => <span key={`window-${item}-${index}`} className="rounded-full bg-slate-200 px-2 py-1 text-slate-700">{item}</span>)}
                   {workflowHints.slice(0, 3).map((item, index) => <span key={`hint-${item}-${index}`} className="rounded-full bg-amber-100 px-2 py-1 text-amber-800">{item.replace(/_/g, " ")}</span>)}
                   {topics.slice(0, 2).map((item, index) => <span key={`topic-${item}-${index}`} className="rounded-full bg-purple-100 px-2 py-1 text-purple-700">{item}</span>)}
                   {constraints.slice(0, 2).map((item, index) => <span key={`constraint-${item}-${index}`} className="rounded-full bg-rose-100 px-2 py-1 text-rose-700">{item.length > 18 ? `${item.slice(0, 18)}…` : item}</span>)}
                 </div>
-                {contextChips.length === 0 && <p className="mt-2 rounded border border-dashed border-slate-200 bg-white px-2 py-1 text-slate-500">No context yet.</p>}
-                <p className="mt-2">I adapt the workflow engine from your notes, calendar, and TickTick.</p>
+                <p>I keep the full context list on its own page so this chat stays focused.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    setPage("context");
+                  }}
+                  className="mt-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:border-violet-200 hover:text-slate-950"
+                >
+                  Manage AI context <ChevronRight size={13} />
+                </button>
               </div>
 
               <div ref={scrollRef} className="max-h-72 space-y-2 overflow-y-auto pr-1">
@@ -3068,6 +3072,201 @@ function storageLabel(urlScheme?: string) {
   if (urlScheme.startsWith("postgresql")) return "Cloud database - PostgreSQL on Railway";
   if (urlScheme.startsWith("sqlite")) return "Local development database - SQLite file";
   return `Backend database - ${urlScheme}`;
+}
+
+function ContextManagerPage() {
+  const [state, setState] = useState<AssistantState | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState<number | null>(null);
+  const [error, setError] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      setState(await api.assistantState());
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load AI context.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const refreshWorkflow = () => {
+    window.dispatchEvent(new Event("workflow-context-updated"));
+  };
+
+  const updateMemory = async (memory: AssistantMemory, value: string) => {
+    const cleaned = value.trim();
+    if (!cleaned || cleaned === memory.value) return;
+    setSavingId(memory.id);
+    try {
+      await api.updateAssistantMemory(memory.id, { value: cleaned });
+      await load();
+      refreshWorkflow();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update context.");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const deleteMemory = async (memoryId: number) => {
+    setSavingId(memoryId);
+    try {
+      await api.deleteAssistantMemory(memoryId);
+      await load();
+      refreshWorkflow();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete context.");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const memories = state?.memories ?? [];
+  const grouped = memories.reduce<Record<string, AssistantMemory[]>>((acc, memory) => {
+    const label = contextCategoryLabel(memory.category);
+    acc[label] = [...(acc[label] ?? []), memory];
+    return acc;
+  }, {});
+
+  return (
+    <div className="grid gap-5">
+      <Panel className="overflow-hidden">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-jade">AI Context</p>
+            <h2 className="mt-2 text-2xl font-black text-white">What the assistant remembers</h2>
+            <p className="mt-2 max-w-3xl text-sm text-slate-400">
+              These are the context notes used to adapt task sorting, calendar interpretation, focus sessions, and recommendations.
+            </p>
+          </div>
+          <Button variant="ghost" onClick={() => void load()} disabled={loading}>
+            <RefreshCcw size={16} /> Refresh
+          </Button>
+        </div>
+        {error && <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <MiniStat icon={<Brain className="text-rune" />} label="Saved context" value={String(state?.summary.total_memories ?? 0)} />
+          <MiniStat icon={<ClockIcon />} label="Study windows" value={String(state?.summary.study_windows.length ?? 0)} />
+          <MiniStat icon={<Target className="text-jade" />} label="Focus subjects" value={String(state?.summary.subject_focus.length ?? 0)} />
+        </div>
+      </Panel>
+
+      {loading ? (
+        <Panel><p className="text-sm text-slate-400">Loading context...</p></Panel>
+      ) : memories.length === 0 ? (
+        <Panel>
+          <div className="rounded-lg border border-dashed border-white/10 bg-white/5 p-5 text-center">
+            <MessageCircle className="mx-auto text-rune" />
+            <h3 className="mt-3 font-black text-white">No AI context yet</h3>
+            <p className="mt-1 text-sm text-slate-400">Tell the floating Context AI about your subjects, deadlines, study style, or constraints.</p>
+          </div>
+        </Panel>
+      ) : (
+        Object.entries(grouped).map(([category, items]) => (
+          <Panel key={category}>
+            <PanelHeader title={category} action={<span className="text-xs text-slate-400">{items.length} notes</span>} />
+            <div className="grid gap-3 lg:grid-cols-2">
+              {items.map((memory) => (
+                <ContextMemoryCard
+                  key={memory.id}
+                  memory={memory}
+                  busy={savingId === memory.id}
+                  onSave={updateMemory}
+                  onDelete={deleteMemory}
+                />
+              ))}
+            </div>
+          </Panel>
+        ))
+      )}
+    </div>
+  );
+}
+
+function ContextMemoryCard({
+  memory,
+  busy,
+  onSave,
+  onDelete
+}: {
+  memory: AssistantMemory;
+  busy: boolean;
+  onSave: (memory: AssistantMemory, value: string) => Promise<void>;
+  onDelete: (memoryId: number) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(memory.value);
+
+  useEffect(() => {
+    setDraft(memory.value);
+  }, [memory.value]);
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-ink/45 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{memory.category.replace(/_/g, " ")}</p>
+          <h3 className="mt-1 text-base font-black text-white">{contextMemorySentence(memory)}</h3>
+        </div>
+        <Badge tone={memory.weight >= 3 ? "boss" : "easy"}>{memory.weight}/5</Badge>
+      </div>
+      {editing ? (
+        <div className="mt-3 grid gap-3">
+          <TextArea value={draft} onChange={(event) => setDraft(event.target.value)} />
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => void onSave(memory, draft)} disabled={busy || !draft.trim()}>Save</Button>
+            <Button variant="ghost" onClick={() => { setDraft(memory.value); setEditing(false); }} disabled={busy}>Cancel</Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p className="mt-3 rounded-lg border border-white/10 bg-white/5 p-3 text-sm leading-6 text-slate-300">{memory.value}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button variant="ghost" onClick={() => setEditing(true)} disabled={busy}>Edit</Button>
+            <Button variant="danger" onClick={() => void onDelete(memory.id)} disabled={busy}>Delete</Button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function contextCategoryLabel(category: string) {
+  const labels: Record<string, string> = {
+    study_window: "Study Timing",
+    subject_focus: "Subjects",
+    timer_preference: "Timer Preferences",
+    workflow_hint: "Workflow Preferences",
+    constraint: "Constraints",
+    topic: "Topics",
+    context_phrase: "General Context",
+    raw_note: "Raw Notes",
+    tone: "Tone"
+  };
+  return labels[category] ?? "Other Context";
+}
+
+function contextMemorySentence(memory: AssistantMemory) {
+  const value = memory.value.trim();
+  const short = value.length > 90 ? `${value.slice(0, 90)}...` : value;
+  if (memory.category === "study_window") return `You prefer studying around ${short}.`;
+  if (memory.category === "subject_focus") return `The assistant should prioritise ${short}.`;
+  if (memory.category === "timer_preference") return `Your focus timer preference is ${short}.`;
+  if (memory.category === "workflow_hint") return `Your workflow should lean toward ${short.replace(/_/g, " ")}.`;
+  if (memory.category === "constraint") return `The assistant should account for this constraint.`;
+  if (memory.category === "tone") return `The assistant should use a ${short} tone.`;
+  return `You told the assistant: ${short}`;
+}
+
+function ClockIcon() {
+  return <Hourglass className="text-gold" />;
 }
 
 function Badge({ tone, children }: { tone: string; children: React.ReactNode }) {

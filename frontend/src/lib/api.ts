@@ -26,6 +26,9 @@ export const api = {
   assistantState: () => request<AssistantState>("/assistant"),
   sendAssistantMessage: (payload: Record<string, unknown>) =>
     request<AssistantReply>("/assistant/message", { method: "POST", body: JSON.stringify(payload) }),
+  updateAssistantMemory: (memoryId: number, payload: Record<string, unknown>) =>
+    request(`/assistant/memories/${memoryId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteAssistantMemory: (memoryId: number) => request(`/assistant/memories/${memoryId}`, { method: "DELETE" }),
   createQuest: (payload: Record<string, unknown>) =>
     request("/quests", { method: "POST", body: JSON.stringify(payload) }),
   completeQuest: (id: number) => request(`/quests/${id}/complete`, { method: "POST" }),

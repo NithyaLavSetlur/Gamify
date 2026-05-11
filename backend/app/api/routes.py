@@ -8,10 +8,11 @@ from urllib.parse import urlencode
 
 from app.core.config import Settings, get_settings
 from app.db.session import engine, get_db
-from app.models.entities import Achievement, BossFight, CalendarEvent, Mastery, PomodoroTask, Quest, StudySession
+from app.models.entities import Achievement, AssistantMemory, BossFight, CalendarEvent, Mastery, PomodoroTask, Quest, StudySession
 from app.schemas.dto import (
     AssistantMessageCreate,
     AssistantMessageOut,
+    AssistantMemoryUpdate,
     AssistantMemoryOut,
     AssistantStateOut,
     BossFightCreate,
@@ -224,6 +225,38 @@ def send_assistant_message(payload: AssistantMessageCreate, db: Session = Depend
         "memories_added": result["memories_added"],
         "summary": result["summary"],
     }
+
+
+@router.patch("/assistant/memories/{memory_id}", response_model=AssistantMemoryOut)
+def update_assistant_memory(memory_id: int, payload: AssistantMemoryUpdate, db: Session = Depends(get_db)) -> AssistantMemoryOut:
+    memory = db.get(AssistantMemory, memory_id)
+    if memory is None:
+        raise HTTPException(status_code=404, detail="Context memory not found")
+
+    data = payload.model_dump(exclude_unset=True)
+    if "value" in data and data["value"] is not None:
+        cleaned = data["value"].strip()
+        if not cleaned:
+            raise HTTPException(status_code=400, detail="Context memory cannot be empty")
+        memory.value = cleaned[:500]
+    if "category" in data and data["category"]:
+        memory.category = data["category"].strip()[:40]
+    if "weight" in data and data["weight"] is not None:
+        memory.weight = max(1, min(5, int(data["weight"])))
+
+    db.commit()
+    db.refresh(memory)
+    return AssistantMemoryOut.model_validate(memory)
+
+
+@router.delete("/assistant/memories/{memory_id}")
+def delete_assistant_memory(memory_id: int, db: Session = Depends(get_db)) -> dict:
+    memory = db.get(AssistantMemory, memory_id)
+    if memory is None:
+        raise HTTPException(status_code=404, detail="Context memory not found")
+    db.delete(memory)
+    db.commit()
+    return {"ok": True}
 
 
 @router.patch("/pomodoro/settings")

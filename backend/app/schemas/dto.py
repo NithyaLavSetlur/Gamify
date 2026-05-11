@@ -94,6 +94,12 @@ class AssistantMemoryOut(BaseModel):
     created_at: datetime
 
 
+class AssistantMemoryUpdate(BaseModel):
+    value: str | None = None
+    category: str | None = None
+    weight: int | None = None
+
+
 class AssistantStateOut(BaseModel):
     messages: list[AssistantMessageOut]
     memories: list[AssistantMemoryOut]
