@@ -9,6 +9,7 @@ import {
   Check,
   CheckCircle2,
   ChevronRight,
+  ExternalLink,
   Flame,
   Gauge,
   Gem,
@@ -67,6 +68,8 @@ const difficultyTone: Record<string, string> = {
 
 const smoothSpring = { type: "spring", stiffness: 260, damping: 28 } as const;
 const smoothEase = { duration: 0.28, ease: [0.22, 1, 0.36, 1] } as const;
+const TICKTICK_WEB_URL = "https://ticktick.com/webapp";
+const GOOGLE_CALENDAR_WEB_URL = "https://calendar.google.com/calendar/u/0/r";
 
 type FullscreenTarget = HTMLElement & {
   webkitRequestFullscreen?: () => Promise<void> | void;
@@ -107,6 +110,24 @@ async function exitDeviceFullscreen() {
   } catch {
     // Browsers can reject this if fullscreen already changed; closing the overlay should still continue.
   }
+}
+
+function googleCalendarDateUrl(dateLike?: string | null) {
+  if (!dateLike) return GOOGLE_CALENDAR_WEB_URL;
+  const date = new Date(dateLike);
+  if (Number.isNaN(date.getTime())) return GOOGLE_CALENDAR_WEB_URL;
+  return `${GOOGLE_CALENDAR_WEB_URL}/day/${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+}
+
+function integrationSourceUrl(source?: string | null, dateLike?: string | null) {
+  const normalized = source?.toLowerCase() ?? "";
+  if (normalized.includes("ticktick")) return TICKTICK_WEB_URL;
+  if (normalized.includes("google") || normalized.includes("calendar")) return googleCalendarDateUrl(dateLike);
+  return null;
+}
+
+function openExternal(url: string) {
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 export default function App() {
@@ -543,7 +564,15 @@ function Dashboard({ state, refresh, completeWithReward, wording }: { state: Das
         <EnhancedQuestBoard quests={daily.length ? daily : state.quests.slice(0, 6)} completeWithReward={completeWithReward} />
       </Panel>
       <Panel>
-        <PanelHeader title="Integration Intel" />
+        <PanelHeader
+          title="Integration Intel"
+          action={
+            <div className="flex flex-wrap gap-2">
+              <ExternalAppLink href={TICKTICK_WEB_URL}>TickTick</ExternalAppLink>
+              <ExternalAppLink href={GOOGLE_CALENDAR_WEB_URL}>Calendar</ExternalAppLink>
+            </div>
+          }
+        />
         <div className="grid gap-2.5 sm:grid-cols-3">
           <MiniStat icon={<Import className="text-jade" />} label="Connected feeds" value={`${connectedCount}/2`} />
           <MiniStat icon={<ListChecks className="text-gold" />} label="Imported quests" value={state.quests.filter((q) => q.external_source).length.toString()} />
@@ -552,7 +581,7 @@ function Dashboard({ state, refresh, completeWithReward, wording }: { state: Das
         <p className="mt-3 text-xs text-slate-400">Sync turns TickTick priorities into quest difficulty and Calendar study/exam events into focus quests or boss fights.</p>
       </Panel>
       <Panel>
-        <PanelHeader title="Calendar Timeline" />
+        <PanelHeader title="Calendar Timeline" action={<ExternalAppLink href={GOOGLE_CALENDAR_WEB_URL}>Open Calendar</ExternalAppLink>} />
         <Timeline events={state.events.slice(0, 4)} />
       </Panel>
       <Panel>
@@ -621,9 +650,13 @@ function IntegrationDataHub({ refresh, completeWithReward }: { refresh: () => Pr
             <h2 className="mt-1 text-3xl font-black text-white">See what was imported and how it becomes gameplay</h2>
             <p className="mt-2 max-w-3xl text-sm text-slate-400">This page is the source-of-truth view: raw TickTick projects, Calendar events, and the exact rules used to turn them into quests, XP, boss fights, mastery, and streak progress.</p>
           </div>
-          <Button onClick={sync} disabled={syncing}>
-            <RefreshCcw size={16} className={syncing ? "animate-spin" : ""} /> {syncing ? "Syncing" : "Sync + reclassify"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <ExternalAppLink href={TICKTICK_WEB_URL}>TickTick</ExternalAppLink>
+            <ExternalAppLink href={GOOGLE_CALENDAR_WEB_URL}>Google Calendar</ExternalAppLink>
+            <Button onClick={sync} disabled={syncing}>
+              <RefreshCcw size={16} className={syncing ? "animate-spin" : ""} /> {syncing ? "Syncing" : "Sync + reclassify"}
+            </Button>
+          </div>
         </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <MiniStat icon={<ListChecks className="text-gold" />} label="Imported quests" value={String(intel.summary.imported_quests)} />
@@ -963,11 +996,11 @@ function TickTickDataExplorer({ intel, completeWithReward }: { intel: Integratio
   return (
     <div className="grid gap-4 xl:grid-cols-[.75fr_1.25fr]">
       <Panel className="xl:col-span-2">
-        <PanelHeader title="Next 7 Days" />
+        <PanelHeader title="Next 7 Days" action={<ExternalAppLink href={TICKTICK_WEB_URL}>Open TickTick</ExternalAppLink>} />
         <NextSevenDaysTasks tasks={allTasks} />
       </Panel>
       <Panel>
-        <PanelHeader title="TickTick Projects" />
+        <PanelHeader title="TickTick Projects" action={<ExternalAppLink href={TICKTICK_WEB_URL}>Open TickTick</ExternalAppLink>} />
         <div className="space-y-2">
           {intel.ticktick.projects.map((project) => (
             <button key={project.id} onClick={() => setProjectId(project.id)} className={`w-full rounded-lg border p-3 text-left transition ${selected?.id === project.id ? "border-jade/45 bg-jade/10" : "border-white/10 bg-ink/45 hover:bg-white/8"}`}>
@@ -981,7 +1014,7 @@ function TickTickDataExplorer({ intel, completeWithReward }: { intel: Integratio
         </div>
       </Panel>
       <Panel>
-        <PanelHeader title={selected ? `${selected.name} Tasks` : "TickTick Tasks"} />
+        <PanelHeader title={selected ? `${selected.name} Tasks` : "TickTick Tasks"} action={<ExternalAppLink href={TICKTICK_WEB_URL}>View source</ExternalAppLink>} />
         {!selected ? <EmptyState icon={<Link />} title="No TickTick data" body="Sync TickTick to show projects and tasks here." /> : (
           <div className="grid gap-3">
             {selected.tasks.map((task) => <IntegrationTaskCard key={`${selected.id}-${task.id}-${task.title}`} task={task} />)}
@@ -1025,7 +1058,10 @@ function NextSevenDaysTasks({ tasks }: { tasks: Array<IntegrationTask & { projec
             ) : day.tasks.map((task) => (
               <div key={`${task.project_id}-${task.id}`} className="rounded-md bg-white/7 p-2">
                 <p className="line-clamp-2 text-xs font-bold text-white">{task.title}</p>
-                <p className="mt-1 text-[11px] text-slate-400">{task.project_name} - {task.xp_reward} XP</p>
+                <div className="mt-1 flex flex-wrap items-center justify-between gap-1">
+                  <p className="text-[11px] text-slate-400">{task.project_name} - {task.xp_reward} XP</p>
+                  <InlineExternalLink href={TICKTICK_WEB_URL}>TickTick</InlineExternalLink>
+                </div>
               </div>
             ))}
           </div>
@@ -1079,6 +1115,7 @@ function IntegrationTaskCard({ task }: { task: IntegrationTask }) {
         </div>
         <div className="flex flex-col items-start gap-2 md:items-end">
           <InterpretationPill interpretation={task.interpretation} />
+          <ExternalAppLink href={TICKTICK_WEB_URL} compact>Open in TickTick</ExternalAppLink>
           <Button variant="ghost" disabled={!canEdit} onClick={() => setEditing(!editing)}>{editing ? "Cancel" : "Edit in TickTick"}</Button>
         </div>
       </div>
@@ -1115,7 +1152,7 @@ function CalendarDataExplorer({ intel }: { intel: IntegrationIntelligence }) {
     <div className="grid gap-4">
       <Panel>
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <PanelHeader title="Custom Calendar View" />
+          <PanelHeader title="Custom Calendar View" action={<ExternalAppLink href={GOOGLE_CALENDAR_WEB_URL}>Open Calendar</ExternalAppLink>} />
           <div className="flex flex-wrap gap-2">
             <Button variant={mode === "month" ? "primary" : "ghost"} onClick={() => setMode("month")}>Month</Button>
             <Button variant={mode === "list" ? "primary" : "ghost"} onClick={() => setMode("list")}>List</Button>
@@ -1165,9 +1202,16 @@ function CalendarMatrix({ events }: { events: IntegrationCalendarEvent[] }) {
           <p className="mb-2 text-xs font-bold text-slate-500">{day.date.getDate()}</p>
           <div className="space-y-1">
             {day.events.slice(0, 3).map((event) => (
-              <div key={`${day.key}-${event.id}-${event.title}`} title={event.title} className={`truncate rounded px-2 py-1 text-[11px] ${event.is_study_block ? "bg-jade/15 text-teal-100" : "bg-white/8 text-slate-300"}`}>
+              <a
+                key={`${day.key}-${event.id}-${event.title}`}
+                href={googleCalendarDateUrl(event.starts_at)}
+                target="_blank"
+                rel="noreferrer"
+                title={`${event.title} - open that date in Google Calendar`}
+                className={`block truncate rounded px-2 py-1 text-[11px] transition hover:brightness-110 ${event.is_study_block ? "bg-jade/15 text-teal-100" : "bg-white/8 text-slate-300"}`}
+              >
                 {event.title}
-              </div>
+              </a>
             ))}
           </div>
         </div>
@@ -1186,6 +1230,9 @@ function CalendarEventList({ events }: { events: IntegrationCalendarEvent[] }) {
             <div>
               <h3 className="font-black text-white">{event.title}</h3>
               <p className="mt-1 text-sm text-slate-400">{new Date(event.starts_at).toLocaleString()} - {new Date(event.ends_at).toLocaleTimeString()}</p>
+              <div className="mt-2">
+                <InlineExternalLink href={googleCalendarDateUrl(event.starts_at)}>Open this date in Google Calendar</InlineExternalLink>
+              </div>
             </div>
             <InterpretationPill interpretation={event.interpretation} />
           </div>
@@ -2049,7 +2096,7 @@ function CalendarView({ state, refresh }: { state: DashboardState; refresh: () =
   return (
     <div className="grid gap-4 lg:grid-cols-[.8fr_1.2fr]">
       <Panel>
-        <PanelHeader title="Create Study Block" />
+        <PanelHeader title="Create Study Block" action={<ExternalAppLink href={GOOGLE_CALENDAR_WEB_URL}>Open Calendar</ExternalAppLink>} />
         <form className="space-y-3" onSubmit={submit}>
           <Field value={title} onChange={(e) => setTitle(e.target.value)} />
           <Field type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
@@ -2057,7 +2104,7 @@ function CalendarView({ state, refresh }: { state: DashboardState; refresh: () =
         </form>
       </Panel>
       <Panel>
-        <PanelHeader title="Timeline Preview" />
+        <PanelHeader title="Timeline Preview" action={<ExternalAppLink href={GOOGLE_CALENDAR_WEB_URL}>View in Google</ExternalAppLink>} />
         <Timeline events={state.events} />
       </Panel>
     </div>
@@ -2076,7 +2123,7 @@ function TickTick({ state, refresh, completeWithReward }: { state: DashboardStat
   }, []);
   return (
     <Panel>
-      <PanelHeader title="TickTick Command Board" />
+      <PanelHeader title="TickTick Command Board" action={<ExternalAppLink href={TICKTICK_WEB_URL}>Open TickTick</ExternalAppLink>} />
       <IntegrationStatusCard status={ticktick} />
       <div className="mt-4 flex flex-wrap gap-2">
         {ticktick.auth_url && <Button onClick={() => window.open(ticktick.auth_url!, "_blank")}>Connect TickTick</Button>}
@@ -2087,7 +2134,7 @@ function TickTick({ state, refresh, completeWithReward }: { state: DashboardStat
       <div className="mt-5">
         {intel && (
           <div className="mb-5">
-            <PanelHeader title="Next 7 Days" />
+            <PanelHeader title="Next 7 Days" action={<ExternalAppLink href={TICKTICK_WEB_URL}>Open source</ExternalAppLink>} />
             <NextSevenDaysTasks tasks={intel.ticktick.projects.flatMap((project) => project.tasks.map((task) => ({ ...task, project_name: project.name })))} />
           </div>
         )}
@@ -2219,7 +2266,7 @@ function SettingsPage({ state, refresh }: { state: DashboardState; refresh: () =
         </div>
       </Panel>
       <Panel>
-        <PanelHeader title="TickTick" />
+        <PanelHeader title="TickTick" action={<ExternalAppLink href={TICKTICK_WEB_URL}>Open TickTick</ExternalAppLink>} />
         <IntegrationStatusCard status={ticktick} />
         <div className="mt-4 flex flex-wrap gap-2">
           {ticktick.auth_url ? <Button onClick={() => window.open(ticktick.auth_url!, "_blank")}>Connect TickTick</Button> : <Button disabled variant="ghost">Not connected yet</Button>}
@@ -2227,7 +2274,7 @@ function SettingsPage({ state, refresh }: { state: DashboardState; refresh: () =
         </div>
       </Panel>
       <Panel className="lg:col-span-2">
-        <PanelHeader title="Google Calendar" />
+        <PanelHeader title="Google Calendar" action={<ExternalAppLink href={GOOGLE_CALENDAR_WEB_URL}>Open Calendar</ExternalAppLink>} />
         <IntegrationStatusCard status={google} />
         <div className="mt-4 flex flex-wrap gap-2">
           {google.auth_url ? <Button onClick={() => window.open(google.auth_url!, "_blank")}>Connect Google</Button> : <Button disabled variant="ghost">Not connected yet</Button>}
@@ -2272,7 +2319,9 @@ function EnhancedQuestBoard({ quests, completeWithReward }: { quests: Quest[]; c
   if (quests.length === 0) return <EmptyState icon={<ListChecks />} title="No quests yet" body="Create one manual quest or sync TickTick to fill the board." />;
   return (
     <div className="grid gap-3">
-      {quests.map((quest, index) => (
+      {quests.map((quest, index) => {
+        const sourceUrl = integrationSourceUrl(quest.external_source, quest.due_date);
+        return (
         <motion.div
           key={quest.id}
           layout
@@ -2294,12 +2343,16 @@ function EnhancedQuestBoard({ quests, completeWithReward }: { quests: Quest[]; c
               </div>
               <p className="mt-1 text-sm text-slate-400">{quest.subject} - {quest.type} - {questDueLabel(quest)}</p>
             </div>
-            <Button className="shrink-0" disabled={quest.completed} onClick={() => completeWithReward(() => api.completeQuest(quest.id).then(() => undefined), quest.difficulty === "hard" || quest.difficulty === "boss")}>
-              <Check size={16} /> {quest.completed ? "Done" : "Claim"}
-            </Button>
+            <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+              {sourceUrl && <ExternalAppLink href={sourceUrl} compact>Source</ExternalAppLink>}
+              <Button disabled={quest.completed} onClick={() => completeWithReward(() => api.completeQuest(quest.id).then(() => undefined), quest.difficulty === "hard" || quest.difficulty === "boss")}>
+                <Check size={16} /> {quest.completed ? "Done" : "Claim"}
+              </Button>
+            </div>
           </div>
         </motion.div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -2378,7 +2431,12 @@ function Timeline({ events }: { events: CalendarEvent[] }) {
                 {event.is_study_block && <span className="rounded bg-jade/15 px-2 py-1 text-xs text-teal-200">study</span>}
               </div>
             </div>
-            <p className="mt-1 text-sm text-slate-400">{new Date(event.starts_at).toLocaleString()} - {new Date(event.ends_at).toLocaleTimeString()}</p>
+            <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-slate-400">{new Date(event.starts_at).toLocaleString()} - {new Date(event.ends_at).toLocaleTimeString()}</p>
+              {integrationSourceUrl(event.external_source, event.starts_at) && (
+                <InlineExternalLink href={integrationSourceUrl(event.external_source, event.starts_at)!}>Open source</InlineExternalLink>
+              )}
+            </div>
           </div>
         </div>
       ))}
@@ -2967,6 +3025,29 @@ function ConfigRow({ label, value }: { label: string; value: string }) {
       <p className="text-[0.68rem] uppercase tracking-[0.14em] text-slate-500">{label}</p>
       <p className="mt-1 break-all font-mono text-xs text-slate-700">{value}</p>
     </div>
+  );
+}
+
+function ExternalAppLink({ href, children, compact = false }: { href: string; children: React.ReactNode; compact?: boolean }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className={`inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white font-semibold text-slate-700 transition hover:border-violet-300 hover:text-slate-950 ${compact ? "min-h-9 px-3 py-1.5 text-sm" : "min-h-10 px-4 py-2 text-[0.95rem]"}`}
+    >
+      <ExternalLink size={compact ? 14 : 16} />
+      {children}
+    </a>
+  );
+}
+
+function InlineExternalLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-bold text-violet-300 transition hover:text-violet-100">
+      {children}
+      <ExternalLink size={12} />
+    </a>
   );
 }
 
