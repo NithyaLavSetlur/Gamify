@@ -1781,6 +1781,11 @@ function LockInOverlay({
 
   useEffect(() => {
     let mounted = true;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
     void enterDeviceFullscreen().then((entered) => {
       if (mounted) fullscreenRequestedRef.current = entered;
     });
@@ -1804,6 +1809,8 @@ function LockInOverlay({
 
     return () => {
       mounted = false;
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
       window.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
@@ -1812,7 +1819,7 @@ function LockInOverlay({
   }, [onClose]);
 
   const content = (
-    <div className="relative z-10 grid min-h-0 gap-6 p-6 text-white sm:p-10">
+    <div className="relative z-10 grid h-full min-h-0 content-center gap-4 overflow-hidden p-5 text-white sm:gap-5 sm:p-8 lg:p-10">
       <div>
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-violet-300">Lock in</p>
@@ -1821,7 +1828,7 @@ function LockInOverlay({
       </div>
 
       {profile.lock_show_timer && (
-        <div className="grid place-items-center py-6">
+        <div className="grid min-h-0 place-items-center py-2 sm:py-4">
           <div className="grid h-64 w-64 place-items-center rounded-full border border-white/10 bg-white/[0.03] shadow-[0_0_80px_rgba(139,124,246,0.2)] sm:h-80 sm:w-80">
             <div className="text-center">
               <Hourglass className="mx-auto mb-4 text-violet-300" size={34} />
@@ -1859,12 +1866,14 @@ function LockInOverlay({
   const layoutClass =
     mediaPosition === "left"
       ? "lg:grid-cols-[0.85fr_1.15fr]"
-      : mediaPosition === "top" || mediaPosition === "bottom"
-        ? "grid-rows-[auto_1fr]"
-        : "lg:grid-cols-[1.15fr_0.85fr]";
+      : mediaPosition === "top"
+        ? "grid-rows-[minmax(0,0.34fr)_minmax(0,0.66fr)]"
+        : mediaPosition === "bottom"
+          ? "grid-rows-[minmax(0,0.66fr)_minmax(0,0.34fr)]"
+          : "lg:grid-cols-[1.15fr_0.85fr]";
 
   return (
-    <motion.div className="fixed inset-0 z-[80] overflow-y-auto bg-black" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+    <motion.div className="lock-in-overlay fixed inset-0 z-[80] h-screen overflow-hidden bg-black" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
       <button
         type="button"
         aria-label="Exit lock in"
@@ -1874,12 +1883,12 @@ function LockInOverlay({
         <X size={22} />
       </button>
       {mediaPosition === "background" && media}
-      <div className={`relative mx-auto grid min-h-screen max-w-7xl ${showMedia && mediaPosition !== "background" ? layoutClass : ""}`}>
-        {showMedia && mediaPosition === "left" && <div className="min-h-64 p-4 lg:min-h-screen">{media}</div>}
-        {showMedia && mediaPosition === "top" && <div className="min-h-64 p-4">{media}</div>}
+      <div className={`relative mx-auto grid h-screen max-h-screen min-h-0 max-w-7xl overflow-hidden ${showMedia && mediaPosition !== "background" ? layoutClass : ""}`}>
+        {showMedia && mediaPosition === "left" && <div className="min-h-0 p-4">{media}</div>}
+        {showMedia && mediaPosition === "top" && <div className="min-h-0 p-4">{media}</div>}
         {content}
-        {showMedia && mediaPosition === "right" && <div className="min-h-64 p-4 lg:min-h-screen">{media}</div>}
-        {showMedia && mediaPosition === "bottom" && <div className="min-h-64 p-4">{media}</div>}
+        {showMedia && mediaPosition === "right" && <div className="min-h-0 p-4">{media}</div>}
+        {showMedia && mediaPosition === "bottom" && <div className="min-h-0 p-4">{media}</div>}
       </div>
     </motion.div>
   );
@@ -1889,7 +1898,7 @@ function LockInMedia({ url, background = false }: { url: string; background?: bo
   const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(url);
   const className = background
     ? "absolute inset-0 h-full w-full object-cover opacity-25"
-    : "h-full min-h-64 w-full rounded-2xl border border-white/10 object-cover";
+    : "h-full min-h-0 w-full rounded-2xl border border-white/10 object-cover";
   if (isVideo) {
     return <video src={url} className={className} autoPlay muted loop playsInline />;
   }
