@@ -410,23 +410,23 @@ textarea {
 }
 
 .theme-dark .text-slate-700 {
-  color: #e2dcef !important;
+  color: #eee9f7 !important;
 }
 
 .theme-dark .text-slate-600 {
-  color: #c2b8d4 !important;
+  color: #d7d0e6 !important;
 }
 
 .theme-dark .text-slate-500 {
-  color: #9e93b5 !important;
+  color: #b4a8c8 !important;
 }
 
 .theme-dark .text-slate-400 {
-  color: #85799d !important;
+  color: #c8bfd8 !important;
 }
 
 .theme-dark .text-slate-300 {
-  color: #d0c8e2 !important;
+  color: #ded7eb !important;
 }
 
 .theme-dark .text-slate-200,
@@ -471,11 +471,47 @@ textarea {
   background-color: rgba(10, 13, 24, 0.94) !important;
 }
 
-.theme-dark [class*="bg-jade"],
-.theme-dark [class*="bg-gold"],
-.theme-dark [class*="bg-ember"],
-.theme-dark [class*="bg-rune"] {
-  filter: saturate(0.95) brightness(0.95);
+.theme-dark .bg-jade {
+  background-color: #7c3aed !important;
+}
+
+.theme-dark .bg-gold {
+  background-color: #b45309 !important;
+}
+
+.theme-dark .bg-ember {
+  background-color: #c2410c !important;
+}
+
+.theme-dark .bg-rune {
+  background-color: #6d28d9 !important;
+}
+
+.theme-dark .bg-jade.text-ink,
+.theme-dark .bg-gold.text-ink,
+.theme-dark .bg-ember.text-ink,
+.theme-dark .bg-rune.text-ink,
+.theme-dark .bg-jade .text-ink,
+.theme-dark .bg-gold .text-ink,
+.theme-dark .bg-ember .text-ink,
+.theme-dark .bg-rune .text-ink {
+  color: #ffffff !important;
+}
+
+.theme-dark .text-jade {
+  color: #c4b5fd !important;
+}
+
+.theme-dark .text-gold {
+  color: #fde68a !important;
+}
+
+.theme-dark .text-ember {
+  color: #fdba74 !important;
+}
+
+.theme-dark .text-rune {
+  color: #ddd6fe !important;
 }
 
 .theme-dark [class*="border-slate-200"] {

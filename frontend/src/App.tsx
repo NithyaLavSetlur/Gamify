@@ -337,7 +337,10 @@ export default function App() {
                           key={item.key}
                           whileHover={{ y: -1 }}
                           whileTap={{ scale: 0.98 }}
-                          onClick={() => setPage(item.key)}
+                          onClick={() => {
+                            setPage(item.key);
+                            setNavOpen(false);
+                          }}
                           className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition ${
                             active
                               ? "border-violet-300 bg-violet-600 text-white"
