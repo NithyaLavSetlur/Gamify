@@ -60,10 +60,10 @@ const nav: Array<{ key: Page; label: string; icon: typeof Gauge }> = [
 
 const today = new Date().toISOString().slice(0, 10);
 const difficultyTone: Record<string, string> = {
-  easy: "text-teal-200 bg-jade/12 border-jade/30",
-  medium: "text-amber-100 bg-gold/12 border-gold/30",
-  hard: "text-orange-100 bg-ember/12 border-ember/30",
-  boss: "text-violet-100 bg-rune/16 border-rune/40"
+  easy: "text-teal-700 bg-teal-50 border-teal-200",
+  medium: "text-amber-800 bg-amber-50 border-amber-200",
+  hard: "text-orange-700 bg-orange-50 border-orange-200",
+  boss: "text-violet-700 bg-violet-50 border-violet-200"
 };
 
 const smoothSpring = { type: "spring", stiffness: 260, damping: 28 } as const;
@@ -3059,7 +3059,7 @@ function storageLabel(urlScheme?: string) {
 }
 
 function Badge({ tone, children }: { tone: string; children: React.ReactNode }) {
-  return <span className={`rounded border px-2 py-1 text-xs font-bold ${difficultyTone[tone] ?? difficultyTone.easy}`}>{children}</span>;
+  return <span data-tone={tone} className={`app-badge rounded border px-2 py-1 text-xs font-bold ${difficultyTone[tone] ?? difficultyTone.easy}`}>{children}</span>;
 }
 
 function PanelHeader({ title, action }: { title: string; action?: React.ReactNode }) {

@@ -199,15 +199,15 @@ textarea {
 }
 
 .claude-shell .text-slate-300 {
-  color: #625975 !important;
+  color: #5d536b !important;
 }
 
 .claude-shell .text-slate-400 {
-  color: #7f768f !important;
+  color: #6f647d !important;
 }
 
 .claude-shell .text-slate-500 {
-  color: #9f95ac !important;
+  color: #655a72 !important;
 }
 
 .claude-shell [class*="bg-midnight"] {
@@ -320,19 +320,19 @@ textarea {
 }
 
 .claude-shell .text-jade {
-  color: #6957e6 !important;
+  color: #0f766e !important;
 }
 
 .claude-shell .text-gold {
-  color: #8f7cf7 !important;
+  color: #5f43d4 !important;
 }
 
 .claude-shell .text-ember {
-  color: #9b7bdc !important;
+  color: #b45309 !important;
 }
 
 .claude-shell .text-rune {
-  color: #6957e6 !important;
+  color: #5b21b6 !important;
 }
 
 .claude-shell .bg-violet-600,
@@ -512,16 +512,94 @@ textarea {
 
 .theme-dark .bg-violet-50,
 .theme-dark .bg-violet-100,
+.theme-dark .bg-teal-50,
+.theme-dark .bg-orange-50,
 .theme-dark .bg-amber-50,
 .theme-dark .bg-rose-100 {
   background-color: rgba(31, 25, 54, 0.96) !important;
 }
 
+.theme-dark .app-badge[data-tone="easy"] {
+  color: #5eead4 !important;
+  background: rgba(20, 184, 166, 0.14) !important;
+  border-color: rgba(45, 212, 191, 0.34) !important;
+}
+
+.theme-dark .app-badge[data-tone="medium"] {
+  color: #fde68a !important;
+  background: rgba(245, 158, 11, 0.14) !important;
+  border-color: rgba(251, 191, 36, 0.34) !important;
+}
+
+.theme-dark .app-badge[data-tone="hard"] {
+  color: #fdba74 !important;
+  background: rgba(249, 115, 22, 0.14) !important;
+  border-color: rgba(251, 146, 60, 0.34) !important;
+}
+
+.theme-dark .app-badge[data-tone="boss"] {
+  color: #ddd6fe !important;
+  background: rgba(139, 92, 246, 0.16) !important;
+  border-color: rgba(167, 139, 250, 0.38) !important;
+}
+
 .theme-dark .text-violet-700,
 .theme-dark .text-violet-600,
+.theme-dark .text-teal-700,
+.theme-dark .text-orange-700,
 .theme-dark .text-amber-800,
 .theme-dark .text-rose-700 {
   color: #d8d1f7 !important;
+}
+
+.theme-dark .text-teal-700 {
+  color: #5eead4 !important;
+}
+
+.theme-dark .text-amber-800 {
+  color: #fde68a !important;
+}
+
+.theme-dark .text-orange-700 {
+  color: #fdba74 !important;
+}
+
+.theme-light .app-badge[data-tone="easy"] {
+  color: #0f766e !important;
+  background: rgba(240, 253, 250, 0.96) !important;
+  border-color: rgba(20, 184, 166, 0.34) !important;
+}
+
+.theme-light .app-badge[data-tone="medium"] {
+  color: #92400e !important;
+  background: rgba(255, 251, 235, 0.96) !important;
+  border-color: rgba(245, 158, 11, 0.34) !important;
+}
+
+.theme-light .app-badge[data-tone="hard"] {
+  color: #c2410c !important;
+  background: rgba(255, 247, 237, 0.96) !important;
+  border-color: rgba(249, 115, 22, 0.34) !important;
+}
+
+.theme-light .app-badge[data-tone="boss"] {
+  color: #6d28d9 !important;
+  background: rgba(245, 243, 255, 0.96) !important;
+  border-color: rgba(139, 92, 246, 0.34) !important;
+}
+
+.theme-light input,
+.theme-light select,
+.theme-light textarea {
+  color: #211a2f !important;
+  background-color: rgba(255, 255, 255, 0.96) !important;
+  color-scheme: light;
+}
+
+.theme-dark input,
+.theme-dark select,
+.theme-dark textarea {
+  color-scheme: dark;
 }
 
 .theme-light .panel-hover,
